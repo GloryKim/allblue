@@ -111,3 +111,39 @@ dist
 
 # TernJS port file
 .tern-port
+
+# ---------------------------------------------------------------------------
+# allblue
+# ---------------------------------------------------------------------------
+
+# Folders that allblue.ts creates at run time (listed in the comment at the top of allblue.ts).
+# _certs/ holds the development TLS key; it is regenerated on the next run.
+/_certs/
+/_data/
+/_frontend/
+/_html_import/
+/_public/
+/_static/
+/_uploads/
+/_vault/
+
+# `bun build --compile ./allblue.ts --outfile allblue` output (~89 MB) and its temp files
+/allblue
+/allblue.exe
+*.bun-build
+
+# SQLite databases and their journal files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite-shm
+*.sqlite-wal
+
+# Local environment overrides (BUN_DEMO_PG_URL and friends may hold passwords)
+.env.local
+.env.*.local
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
