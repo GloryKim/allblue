@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="240" viewBox="0 0 960 240" role="img" aria-labelledby="title desc">
+  <title id="title">allblue</title>
+  <desc id="desc">Bun's built-in APIs in one TypeScript file. A single file icon filled with ocean waves, next to the word allblue.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a1a33"/>
+      <stop offset="1" stop-color="#0d2f5c"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4fc3ff"/>
+      <stop offset="1" stop-color="#1565d8"/>
+    </linearGradient>
+    <linearGradient id="word" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e6f4ff"/>
+      <stop offset="1" stop-color="#7cd0ff"/>
+    </linearGradient>
+    <clipPath id="file">
+      <path d="M0 0 H66 L96 30 V128 A10 10 0 0 1 86 138 H10 A10 10 0 0 1 0 128 V10 A10 10 0 0 1 10 0 Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- background card -->
+  <rect width="960" height="240" rx="24" fill="url(#bg)"/>
+  <!-- faint horizon waves across the card -->
+  <g fill="none" stroke="#2f80ed" stroke-opacity="0.18" stroke-width="2">
+    <path d="M0 196 C80 184 160 208 240 196 S400 184 480 196 S640 208 720 196 S880 184 960 196"/>
+    <path d="M0 214 C80 202 160 226 240 214 S400 202 480 214 S640 226 720 214 S880 202 960 214"/>
+  </g>
+
+  <!-- one file, full of sea -->
+  <g transform="translate(92 51)">
+    <path d="M0 0 H66 L96 30 V128 A10 10 0 0 1 86 138 H10 A10 10 0 0 1 0 128 V10 A10 10 0 0 1 10 0 Z" fill="#10284d" stroke="#7cd0ff" stroke-width="3"/>
+    <g clip-path="url(#file)">
+      <path d="M-10 62 C8 52 24 72 42 62 S76 52 94 62 S120 72 130 62 V160 H-10 Z" fill="url(#sea)" opacity="0.55"/>
+      <path d="M-10 82 C8 72 24 92 42 82 S76 72 94 82 S120 92 130 82 V160 H-10 Z" fill="url(#sea)" opacity="0.8"/>
+      <path d="M-10 104 C8 94 24 114 42 104 S76 94 94 104 S120 114 130 104 V160 H-10 Z" fill="#1565d8"/>
+    </g>
+    <path d="M66 0 V22 A8 8 0 0 0 74 30 H96" fill="#1c3f73" stroke="#7cd0ff" stroke-width="3" stroke-linejoin="round"/>
+    <text x="14" y="40" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" font-weight="700" fill="#7cd0ff">.ts</text>
+  </g>
+
+  <!-- wordmark -->
+  <text x="236" y="132" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="92" font-weight="800" letter-spacing="-3" fill="url(#word)">allblue</text>
+  <text x="240" y="170" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="22" fill="#9cc4ea">Bun's built-in APIs, one TypeScript file</text>
+</svg>
