@@ -2,15 +2,15 @@
  * allblue: Bun's built-in APIs, one TypeScript file
  * ============================================================================
  * What this file is
- *   One process that starts up to 77 small Bun servers, one per port
- *   (example NN listens on port 30NN; [55] uses a unix socket). Every
+ *   One process that starts up to 81 small Bun servers, one per port
+ *   (example NN listens on port 30NN; [58] uses a unix socket). Every
  *   example lives in its own `async function startNN()`, so names like
  *   `server` or `WsData` cannot clash, and uses only what ships with Bun:
  *   no npm packages, no framework.
  *
  * How to read it
  *   Top to bottom: shared helpers first, then the examples from BEGINNER
- *   [01]-[19] through INTERMEDIATE [20]-[53] to ADVANCED [54]-[77], then the runner
+ *   [01]-[20] through INTERMEDIATE [21]-[56] to ADVANCED [57]-[81], then the runner
  *   and the self-test. Search for "[NN]" to jump to an example; each header
  *   comment ends with a "Try:" block of curl commands. The English comments
  *   explain how each API works; the original Korean comments were kept.
@@ -22,31 +22,38 @@
  *                 08 static file, 09 cookies, 10 static Response / redirect,
  *                 11 error handler, 12 data formats, 13 hashing & ids,
  *                 14 file API, 15 markdown & escaping, 16 compression,
- *                 17 ★ HTTP server, 18 ★ passwords, 19 stdlib utilities
- *   Intermediate  20 WebSocket echo, 21 CORS, 22 upload, 23 SSE,
- *                 24 bearer auth, 25 middleware, 26 static directory,
- *                 27 streaming, 28 ws pub/sub, 29 REST CRUD, 30 bun:sqlite,
- *                 31 metrics, 32 rate limit, 33 graceful stop, 34 Range,
- *                 35 session, 36 validation 422, 37 paging + If-Match,
- *                 38 ETag / 304, 39 NDJSON, 40 slow & flaky, 41 CSRF,
- *                 42 HTMLRewriter, 43 Bun.cron, 44 shell & spawn,
- *                 45 ★ bun test, 46 toolchain, 47 ★ WebSockets, 48 ★ Bun.sql,
- *                 49 ★ Bun.redis, 50 ★ Bun.s3, 51 ★ Bun Shell,
- *                 52 fetch extras, 53 Bun.secrets
- *   Advanced      54 server.reload, 55 unix socket, 56 reverse proxy,
- *                 57 timeouts, 58 route priority, 59 TLS, 60 HTTP/3,
- *                 61 HTML import, 62 ws backpressure, 63 JWT,
- *                 64 mini framework, 65 integration, 66 hardening,
- *                 67 ws.publish vs server.publish, 68 background jobs,
- *                 69 WebSocket RPC, 70 image service, 71 file vault,
- *                 72 workers, 73 TCP/UDP, 74 client patterns, 75 spawn IPC,
- *                 76 ★ frontend, 77 ★ FFI
+ *                 17 ★ HTTP server, 18 ★ passwords, 19 stdlib utilities,
+ *                 20 ◆ runtime & library versions
+ *   Intermediate  21 WebSocket echo, 22 CORS, 23 upload, 24 SSE,
+ *                 25 bearer auth, 26 middleware, 27 static directory,
+ *                 28 streaming, 29 ws pub/sub, 30 REST CRUD, 31 bun:sqlite,
+ *                 32 ◆ SQLite 3.54 rules + authorizer, 33 metrics,
+ *                 34 rate limit, 35 graceful stop, 36 Range, 37 session,
+ *                 38 validation 422, 39 paging + If-Match, 40 ETag / 304,
+ *                 41 NDJSON, 42 slow & flaky, 43 CSRF, 44 HTMLRewriter,
+ *                 45 Bun.cron, 46 shell & spawn, 47 ★ bun test,
+ *                 48 toolchain, 49 ★ WebSockets, 50 ★ Bun.sql,
+ *                 51 ★ Bun.redis, 52 ★ Bun.s3, 53 ★ Bun Shell,
+ *                 54 fetch extras, 55 Bun.secrets, 56 ◆ RSA signatures
+ *   Advanced      57 server.reload, 58 unix socket, 59 reverse proxy,
+ *                 60 timeouts, 61 route priority, 62 TLS,
+ *                 63 ◆ TLS certificate errors, 64 HTTP/3, 65 HTML import,
+ *                 66 ws backpressure, 67 JWT, 68 mini framework,
+ *                 69 integration, 70 hardening, 71 ws.publish vs
+ *                 server.publish, 72 background jobs, 73 WebSocket RPC,
+ *                 74 image service, 75 file vault, 76 workers, 77 TCP/UDP,
+ *                 78 client patterns, 79 spawn IPC, 80 ★ frontend, 81 ★ FFI
+ *
+ * ◆ Added for Bun 1.4.5, a security release with no new APIs: what it
+ *   changed is shown live in [20] versions, [32] SQLite 3.54,
+ *   [56] RSA + SHA-3 signatures and [63] TLS error codes. The numbers
+ *   were reassigned so that every level stays in one continuous range.
  *
  * ★ The ten official bun.com showcase samples, each with a full version
- *   HTTP server [17], Passwords [18], Testing [45], WebSockets [47],
- *   PostgreSQL [48], Redis [49], S3 [50], Shell [51], Frontend [76], FFI [77]
+ *   HTTP server [17], Passwords [18], Testing [47], WebSockets [49],
+ *   PostgreSQL [50], Redis [51], S3 [52], Shell [53], Frontend [80], FFI [81]
  *
- * The bun toolchain (explained and run live in [45] and [46])
+ * The bun toolchain (explained and run live in [47] and [48])
  *   bun run     run TS/JS directly, package.json scripts, --watch, --hot
  *   bun install npm-compatible installs, text lockfile bun.lock
  *   bun test    Jest-compatible test runner
@@ -66,45 +73,52 @@
  * Platforms
  *   Wherever Bun runs: macOS 13+ (arm64, x64), Linux (x64, arm64; glibc 2.17+
  *   or musl), Windows 10 1809+ (x64, arm64). OS-specific parts adapt:
- *   the unix socket path, the C library names in [77], and Bun Shell builtins
+ *   the unix socket path, the C library names in [81], and Bun Shell builtins
  *   (cat, echo, ls) instead of external programs. External programs that
  *   may be missing (gzip, git) are skipped. Run `bun test ./allblue.ts` to check
  *   your machine.
  *
  * Optional services (opt-in, so nothing real is touched by default)
- *   BUN_DEMO_PG_URL=postgres://...  [48] uses PostgreSQL, else in-memory SQLite
- *   BUN_DEMO_REDIS_URL=redis://...  [49] uses Redis, else an in-process RESP3 toy
- *   BUN_DEMO_S3=1 + S3_* variables  [50] reads/writes a bucket, else presign only
- *   BUN_DEMO_SECRETS=1              [53] uses the OS keychain, else disabled
+ *   BUN_DEMO_PG_URL=postgres://...  [50] uses PostgreSQL, else in-memory SQLite
+ *   BUN_DEMO_REDIS_URL=redis://...  [51] uses Redis, else an in-process RESP3 toy
+ *   BUN_DEMO_S3=1 + S3_* variables  [52] reads/writes a bucket, else presign only
+ *   BUN_DEMO_SECRETS=1              [55] uses the OS keychain, else disabled
  *
  * Files created at run time (next to allblue.ts, or in the current directory
  * when compiled; delete them any time, they come back)
  *   _static/ _public/ _uploads/ _data/ _vault/ _certs/ _html_import/ _frontend/
  *   Outside: the OS temp folder (bun-all-ts-*) and the unix socket file.
  *
- * Facts verified on Bun 1.4.4 while writing these notes
+ * Facts verified on Bun 1.4.5 while writing these notes
+ *   (first found on 1.4.4; the self-test re-checks every one on 1.4.5)
+ *   - On macOS, bun:sqlite and node:sqlite use the SYSTEM SQLite (3.51.0 on
+ *     the development Mac), not the bundled 3.54.1. Database.setCustomSQLite()
+ *     switches BOTH to another libsqlite3; allblue.ts uses Homebrew's
+ *     (3.54.1) when installed, see SQLITE_LIB ([20], [32]).
+ *   - An expired certificate reports CERT_HAS_EXPIRED in fetch() and in
+ *     node:tls, even when it is also untrusted or trusted via `ca` ([63]).
  *   - Bun.serve `development` defaults to TRUE unless NODE_ENV=production.
  *     Without an `error()` handler, a thrown error then returns Bun's HTML
  *     error page, which contains the error message, stack and source code.
  *   - A method missing from a { GET, POST } route object is NOT answered 405:
  *     the request falls through to `fetch` (or a default 404) ([05]).
  *   - `await req.json()` THROWS on invalid JSON. Without try/catch the
- *     request ends as a 500 ([05], [29]).
+ *     request ends as a 500 ([05], [30]).
  *   - `new Response(Bun.file(path))` answers HEAD and `Range: bytes=a-b`
- *     (206) automatically and sets Content-Length, but adds no ETag ([34]).
+ *     (206) automatically and sets Content-Length, but adds no ETag ([36]).
  *   - A handler that awaits longer than idleTimeout MAY be reset
- *     (ECONNRESET), depending on timing; server.timeout(req, 0) is reliable ([57]).
- *   - A closed WebSocket is removed from all its topics automatically ([67]).
+ *     (ECONNRESET), depending on timing; server.timeout(req, 0) is reliable ([60]).
+ *   - A closed WebSocket is removed from all its topics automatically ([71]).
  *   - Bun.markdown.html() keeps raw HTML unless you pass { tagFilter: true,
  *     noHtmlBlocks: true, noHtmlSpans: true }, and keeps javascript: links ([15]).
  *   - Bun Shell does not accept an input AND an output redirect on one
  *     command: `gzip -9 < ${res} > out.gz` (the bun.com Shell sample) throws
- *     a parse error; `gzip -9 < ${res} | cat > out.gz` works ([51]).
+ *     a parse error; `gzip -9 < ${res} | cat > out.gz` works ([53]).
  *   - $`...`.env({ A: "1" }) REPLACES the environment ($HOME is then empty);
- *     spread process.env in to add a variable ([51]).
+ *     spread process.env in to add a variable ([53]).
  *   - bcrypt reads only the first 72 bytes of a password, also in Bun;
  *     argon2id (the default) has no such limit ([18]).
- *   - Bun.sql(obj, "a", "b") inserts only the listed columns ([48]).
+ *   - Bun.sql(obj, "a", "b") inserts only the listed columns ([50]).
  *   - In a compiled binary, import.meta.dir is read-only (/$bunfs/root) and
  *     process.execPath is the binary itself (see BASE_DIR, BUN_CHILD_ENV).
  * ==========================================================================*/
@@ -128,8 +142,8 @@ import { $, JSON5, JSONC, JSONL, RedisClient, S3Client, SQL, TOML, XML, YAML, se
 // bun:ffi is built in too (no npm package).
 import { cc, dlopen, FFIType, ptr, suffix } from "bun:ffi";
 // UPDATED: the two local imports below were removed so that allblue.ts needs
-// no sibling files. `homepage` is now loaded inside start61() and `mini`
-// comes from the inlined MiniFramework namespace just above [64].
+// no sibling files. `homepage` is now loaded inside start65() and `mini`
+// comes from the inlined MiniFramework namespace just above [68].
 // import homepage from "./_html_import/index.html";
 // import { mini } from "./_mini/mini.ts";
 
@@ -170,6 +184,34 @@ const push = (id: string, server: Server<any>) => {
 // user's temp folder there.
 const UNIX_SOCK = process.platform === "win32" ? `${tmpdir()}\\allblue.sock` : "/tmp/allblue.sock";
 
+// UPDATED (SQLite 3.54): Bun bundles SQLite 3.54.1 on Linux and Windows, but
+// on macOS it links the SYSTEM libsqlite3, which is older and cannot be
+// upgraded. Database.setCustomSQLite(path) points bun:sqlite AND node:sqlite
+// at another libsqlite3 instead; it must run before the first database is
+// opened, which is why it sits here, at the top. On macOS the Homebrew
+// build is used when it is installed (`brew install sqlite`, keg-only, so
+// it does not replace the system one):
+//   BUN_SQLITE_LIB=/path/libsqlite3.dylib   use this library
+//   BUN_SQLITE_LIB=system                   keep the macOS system SQLite
+// [20] and [32] show which SQLite ended up in use.
+const SQLITE_LIB = (() => {
+  const wanted = Bun.env.BUN_SQLITE_LIB;
+  if (wanted === "system") return null;
+  if (wanted) return wanted;
+  if (process.platform !== "darwin") return null; // bundled 3.54.1 already
+  // Apple Silicon, then Intel Homebrew prefixes.
+  return ["/opt/homebrew/opt/sqlite/lib/libsqlite3.dylib", "/usr/local/opt/sqlite/lib/libsqlite3.dylib"].find((p) => existsSync(p)) ?? null;
+})();
+let SQLITE_SOURCE = process.platform === "darwin" ? "system libsqlite3 (macOS)" : "bundled with Bun";
+if (SQLITE_LIB) {
+  try {
+    Database.setCustomSQLite(SQLITE_LIB);
+    SQLITE_SOURCE = `custom: ${SQLITE_LIB}`;
+  } catch (err) {
+    console.warn(`custom SQLite ${SQLITE_LIB} not loaded, using ${SQLITE_SOURCE}: ${(err as Error).message}`);
+  }
+}
+
 
 // ----------------------------------------------------------------------------
 // Request and response helpers
@@ -179,7 +221,7 @@ const UNIX_SOCK = process.platform === "win32" ? `${tmpdir()}\\allblue.sock` : "
  * push() above is declared with `Server`, which since Bun 1.3 is a generic
  * type (`Server<WebSocketData>`). Rather than change that original line, the
  * new examples register through this adapter. It also accepts non-HTTP
- * listeners ([73]) as long as they have a `url` and a `stop()`.
+ * listeners ([77]) as long as they have a `url` and a `stop()`.
  */
 function register(id: string, server: { readonly url: URL; stop(closeActiveConnections?: boolean): unknown }) {
   push(id, server as unknown as Parameters<typeof push>[1]);
@@ -217,7 +259,7 @@ function errorResponse(err: unknown): Response {
  *       stream is read chunk by chunk and abandoned as soon as it is too big,
  *       so a 1 GB body costs `limit` bytes of memory, not 1 GB),
  *   400 if it is not valid JSON.
- * Compare with `await req.json()` in [05]/[29], which does none of this.
+ * Compare with `await req.json()` in [05]/[30], which does none of this.
  */
 async function readJsonCapped(req: Request, limit = 64 * 1024): Promise<unknown> {
   if (!(req.headers.get("content-type") ?? "").includes("application/json")) {
@@ -282,7 +324,7 @@ async function runBun(args: string[], opts: { cwd: string; stdin?: string; timeo
 const tail = (text: string, n = 12) => text.split("\n").filter((l) => l.trim() !== "").slice(-n);
 
 /**
- * A throwaway project for [45] (bun test) and [46] (the other tools).
+ * A throwaway project for [47] (bun test) and [48] (the other tools).
  * It lives in the OS temp folder on purpose: if it were inside this folder,
  * a plain `bun test` here would discover its *.test.ts files, including
  * the one that fails on purpose. The files are rewritten on every start so
@@ -403,12 +445,12 @@ function testSummary(output: string) {
   return { pass: n("pass"), fail: n("fail"), todo: n("todo") };
 }
 
-// UPDATED: embedded development certificate for [59] and [60].
+// UPDATED: embedded development certificate for [62] and [64].
 // It is a self-signed cert for CN=localhost (SAN localhost, 127.0.0.1),
 // valid until 2027-11-17. Its private key is public on purpose: it is a
 // throwaway for local testing, NEVER use it for a real host. ensureDevCert()
 // writes it to _certs/ only if the files are missing, so if you regenerate
-// the pair with the openssl command shown in [59], yours are used instead.
+// the pair with the openssl command shown in [62], yours are used instead.
 // (Bun has no built-in X.509 generator, which is why it is embedded and
 // not created at run time.)
 const DEV_TLS_KEY = `-----BEGIN PRIVATE KEY-----
@@ -475,7 +517,7 @@ async function ensureDevCert(dir: string) {
 // very end of the file, after every top-level statement above it has executed.
 namespace MiniFramework {
   // _mini/mini.ts — Express식 초소형 라우터 (의존성 0)
-  // 고급 예제 38에서 사용. 학습용 축소판.
+  // 고급 예제 [68]에서 사용. 학습용 축소판.
 
   export type Next = (err?: unknown) => void;
   export type Handler = (
@@ -628,7 +670,7 @@ const { mini } = MiniFramework;
 // ############################################################################
 // ############################################################################
 //
-//   BEGINNER  [01]-[19]  (19 examples)
+//   BEGINNER  [01]-[20]  (20 examples)
 //
 // ############################################################################
 // ############################################################################
@@ -972,7 +1014,7 @@ async function start07() {
 // so the bytes never enter JavaScript. Content-Type comes from the file
 // extension, and (verified on 1.4.4) HEAD and Range requests are handled
 // for you. A missing file makes the response fail with a 500 / ENOENT, so
-// check `await file.exists()` when the file may not be there ([26] does).
+// check `await file.exists()` when the file may not be there ([27] does).
 async function start08() {
   // 08. 정적 파일 — Bun.file + Response
   // 실행: bun --hot 08_static.ts
@@ -1139,7 +1181,7 @@ async function start11() {
     // NODE_ENV=production. With error() defined, your handler wins; without
     // it, Bun returns an HTML page with the message, stack and source code.
     // Note that this handler also returns err.message to the client: fine
-    // for learning, but in production return a generic message ([66]).
+    // for learning, but in production return a generic message ([70]).
     development: true,
     routes: {
       "/ok": () => Response.json({ ok: true }),
@@ -1407,7 +1449,7 @@ async function start15() {
   // Three options turn raw HTML into visible text:
   //   tagFilter: true, noHtmlBlocks: true, noHtmlSpans: true
   // but links like [x](javascript:alert(1)) survive in every mode, so a
-  // second pass with HTMLRewriter ([42]) removes hrefs that are not
+  // second pass with HTMLRewriter ([44]) removes hrefs that are not
   // http(s), mailto, relative or #anchors. A Content-Security-Policy
   // header is the third layer: even if something slips through, the
   // browser refuses to run inline scripts.
@@ -1545,7 +1587,7 @@ async function start17() {
   // How the pieces work
   //   routes        Matched natively (in Zig/C++) before any JavaScript runs.
   //                 Order does not matter; exact paths beat ":params", and
-  //                 params beat "/*" (see [58]).
+  //                 params beat "/*" (see [61]).
   //   static route  "/" holds a Response OBJECT, not a function. Bun builds it
   //                 once and answers every request from memory without
   //                 calling into JavaScript at all: the fastest route type.
@@ -1559,7 +1601,7 @@ async function start17() {
   //                 The official sample uses the default `sql`, which
   //                 connects to $DATABASE_URL. Here a private SQLite
   //                 database in memory is used, so the example runs
-  //                 anywhere; [48] shows the same API against Postgres.
+  //                 anywhere; [50] shows the same API against Postgres.
   // Try:
   //   curl localhost:3017/
   //   curl localhost:3017/api/users/1
@@ -1723,19 +1765,19 @@ async function start19() {
   //   Bun.stringWidth(s)       columns a string takes in a terminal: Korean
   //                            characters count 2, ANSI colour codes 0. Use it
   //                            to align CLI output; .length gets this wrong.
-  //   Bun.semver               satisfies("1.4.4", "^1.4.0"), order(a, b) -> -1|0|1.
+  //   Bun.semver               satisfies("1.4.5", "^1.4.0"), order(a, b) -> -1|0|1.
   //   Bun.peek(promise)        read a settled promise's value synchronously
   //                            (returns the promise itself if still pending).
   //   Bun.nanoseconds()        monotonic high-resolution clock since start.
   //   Bun.sleep(ms)            a promise-based setTimeout.
   //   Bun.color(input, fmt)    parse/convert CSS colours ("red" -> "#ff0000").
   //   Bun.Glob#match(path)     test a path against a glob WITHOUT touching
-  //                            the disk ([14]/[71] use .scan() to list files).
+  //                            the disk ([14]/[75] use .scan() to list files).
   //   Bun.fileURLToPath(url)   file:///a%20b -> "/a b" (and pathToFileURL).
   //   structuredClone(v)       deep copy with the same algorithm postMessage
-  //                            uses for Workers ([72]) and IPC ([75]): Map, Set,
+  //                            uses for Workers ([76]) and IPC ([79]): Map, Set,
   //                            Date, typed arrays survive; functions throw.
-  //   Bun.version / Bun.revision   the running Bun (1.4.4 + git commit).
+  //   Bun.version / Bun.revision   the running Bun (1.4.5 + git commit); [20] shows more.
   //   Bun.env                  the same object as process.env. Bun loads .env,
   //                            .env.local and .env.<NODE_ENV> automatically
   //                            before your code runs: no dotenv package.
@@ -1821,33 +1863,134 @@ async function start19() {
 }
 
 
+// ========== [20] 20_runtime_versions.ts ==========
+// NEW in Bun 1.4.5 edition.
+async function start20() {
+  // Level: Beginner. Which Bun is running, and what is built into it?
+  // Bun 1.4.5 (November 2026) is a SECURITY release: it adds no new API.
+  // It fixes HTTP/3, TLS and DNS problems and updates the native libraries
+  // Bun is built from (lsquic, c-ares, SQLite, llhttp, BoringSSL). Your code
+  // does not change, but behaviour can, so it pays to know exactly what you
+  // are running:
+  //   Bun.version              "1.4.5" (the same as process.versions.bun)
+  //   Bun.revision             the git commit Bun was built from
+  //   process.versions         the libraries inside Bun, as versions or
+  //                            commit hashes: boringssl, llhttp, sqlite,
+  //                            zstd, ares (c-ares DNS), uwebsockets, webkit ...
+  //   Bun.semver.satisfies(v, ">=1.4.5")   a version gate for your app
+  //   Bun.semver.order(a, b)   -1 | 0 | 1, compares versions correctly
+  //                            ("1.10.0" > "1.9.0", unlike a string compare)
+  // process.versions.sqlite is the SQLite that bun:sqlite really uses. On
+  // Linux and Windows Bun bundles SQLite (3.54.1 in Bun 1.4.5). On macOS Bun
+  // uses the system's libsqlite3, whose version comes with macOS, unless
+  // SQLITE_LIB at the top of the file switched to Homebrew's 3.54.1 with
+  // Database.setCustomSQLite(). /versions shows which one is in use.
+  // The 1.4.5 changes are shown live in: [32] SQLite 3.54 rules,
+  // [56] RSA signatures with SHA-3 (node:crypto), [63] TLS certificate errors.
+  // Try:
+  //   curl localhost:3020/versions
+  //   curl 'localhost:3020/require?min=1.4.5'
+  //   curl 'localhost:3020/require?min=2.0.0'
+  //   curl localhost:3020/changes
+
+  const MIN_BUN = "1.4.5";
+  // A start-up gate: warn (or exit) when the runtime is too old.
+  if (!Bun.semver.satisfies(Bun.version, `>=${MIN_BUN}`)) {
+    console.warn(`[20] Bun ${Bun.version} is older than ${MIN_BUN}: [56] and [63] show 1.4.5 behaviour`);
+  }
+
+  // Ask SQLite itself: this is the version bun:sqlite actually links.
+  const probe = new Database(":memory:");
+  const sqliteInUse = (probe.query("SELECT sqlite_version() AS v").get() as { v: string }).v;
+  probe.close();
+
+  // Hashes are long; 12 characters are enough to compare two builds.
+  const short = (v: string | undefined) => (v && /^[0-9a-f]{40}$/.test(v) ? v.slice(0, 12) : v ?? null);
+  const LIBRARIES = ["boringssl", "llhttp", "sqlite", "zstd", "ares", "uwebsockets", "webkit", "zlib"] as const;
+
+  const server = Bun.serve({
+    port: 3020,
+    routes: {
+      "/versions": () =>
+        Response.json({
+          bun: Bun.version,
+          revision: Bun.revision.slice(0, 12),
+          platform: process.platform,
+          arch: process.arch,
+          libraries: Object.fromEntries(LIBRARIES.map((name) => [name, short(process.versions[name])])),
+          sqlite: {
+            inUse: sqliteInUse,
+            source: SQLITE_SOURCE,
+            has354Rules: Bun.semver.satisfies(sqliteInUse, ">=3.54.0"),
+          },
+        }),
+      "/require": (req) => {
+        const min = qp(req, "min") ?? MIN_BUN;
+        // Bun.semver.satisfies() never throws: a bad range is just `false`.
+        // Validate first, so a typo is a 400 and not a silent "too old".
+        if (!/^\d+\.\d+\.\d+$/.test(min)) throw new HttpError(400, "min must look like 1.4.5");
+        return Response.json({
+          running: Bun.version,
+          required: min,
+          ok: Bun.semver.satisfies(Bun.version, `>=${min}`),
+          order: Bun.semver.order(Bun.version, min), // -1 older, 0 same, 1 newer
+        });
+      },
+      "/changes": () =>
+        Response.json({
+          release: "1.4.5",
+          kind: "security release: no new APIs",
+          fixedAreas: ["HTTP/3", "HTTP/1.1", "TLS", "DNS", "Zstandard"],
+          updated: {
+            lsquic: "4.9.4 -> 4.11.2",
+            "c-ares": "1.34.8 -> 1.34.9",
+            sqlite: "3.53.4 -> 3.54.1",
+            llhttp: "9.4.2 -> 9.4.4",
+            boringssl: "August 2026 -> November 2026",
+          },
+          behaviourChanges: {
+            "[32]": "SQLite 3.54: ALTER TABLE refuses columns named rowid/oid/_rowid_; the authorizer sees functions in DEFAULT expressions",
+            "[56]": "node:crypto: RSA sign/verify with SHA-3, SHA-512/224, SHA-512/256 and RIPEMD-160 no longer throws",
+            "[63]": "TLS: an expired cert from an unknown issuer reports CERT_HAS_EXPIRED; custom roots (ca) are validated more strictly",
+          },
+        }),
+    },
+    fetch: () => Response.json({ error: "Not Found" }, { status: 404 }),
+    error: errorResponse,
+  });
+
+  console.log(`20 runtime_versions → ${server.url}versions  (Bun ${Bun.version}, SQLite ${sqliteInUse})`);
+  register("20", server);
+}
+
+
 // ############################################################################
 // ############################################################################
 //
-//   INTERMEDIATE  [20]-[53]  (34 examples)
+//   INTERMEDIATE  [21]-[56]  (36 examples)
 //
 // ############################################################################
 // ############################################################################
 
-// ========== [20] 20_websocket.ts ==========
-// ★ IMPORTANT — first step towards the official bun.com sample "WebSockets"; full version: [47].
+// ========== [21] 21_websocket.ts ==========
+// ★ IMPORTANT — first step towards the official bun.com sample "WebSockets"; full version: [49].
 // Level: Intermediate. WebSocket echo.
 // A WebSocket starts as a normal HTTP request with "Upgrade: websocket".
 // server.upgrade(req) hands the socket to the WebSocket engine and writes
 // the 101 Switching Protocols reply itself. After that, both sides can send
 // messages at any time. Handlers live in `websocket: { open, message,
 // close }`, one set for all sockets; per-socket state goes in ws.data
-// (see [28]).
-async function start20() {
-  // 20. WebSocket — 에코 서버
-  // 실행: bun --hot 20_websocket.ts
+// (see [29]).
+async function start21() {
+  // 21. WebSocket — 에코 서버
+  // 실행: bun --hot 21_websocket.ts
   // 확인 (브라우저 콘솔 또는 아래 스크립트):
-  //   const ws = new WebSocket("ws://localhost:3020/ws");
+  //   const ws = new WebSocket("ws://localhost:3021/ws");
   //   ws.onmessage = (e) => console.log(e.data);
   //   ws.onopen = () => ws.send("안녕");
   //
   // 또는: bun -e '
-  //   const ws = new WebSocket("ws://localhost:3020/ws");
+  //   const ws = new WebSocket("ws://localhost:3021/ws");
   //   ws.addEventListener("message", (e) => { console.log(e.data); ws.close(); });
   //   ws.addEventListener("open", () => ws.send("ping"));
   // '
@@ -1882,7 +2025,7 @@ async function start20() {
   </html>`;
 
   const server = Bun.serve({
-    port: 3020,
+    port: 3021,
     routes: {
       "/": () =>
         new Response(html, {
@@ -1915,13 +2058,13 @@ async function start20() {
     },
   });
 
-  console.log(`20 websocket → ${server.url}`);
-    push("20", server);
+  console.log(`21 websocket → ${server.url}`);
+    push("21", server);
 
 }
 
 
-// ========== [21] 21_cors.ts ==========
+// ========== [22] 22_cors.ts ==========
 // Level: Intermediate. CORS.
 // Browsers block JS on origin A from reading responses from origin B unless
 // B says so with Access-Control-Allow-* headers. For non-simple requests
@@ -1929,14 +2072,14 @@ async function start20() {
 // browser first sends an OPTIONS "preflight"; answering it with 204 + the
 // headers lets the real request through. CORS is enforced by browsers
 // only: curl and servers ignore it, so it is NOT an access control.
-async function start21() {
-  // 21. CORS — 프리플라이트(OPTIONS) 포함
-  // 실행: bun --hot 21_cors.ts
+async function start22() {
+  // 22. CORS — 프리플라이트(OPTIONS) 포함
+  // 실행: bun --hot 22_cors.ts
   // 확인:
-  //   curl -i -X OPTIONS http://localhost:3021/api/hello \
+  //   curl -i -X OPTIONS http://localhost:3022/api/hello \
   //     -H 'Origin: http://localhost:5173' \
   //     -H 'Access-Control-Request-Method: GET'
-  //   curl -i http://localhost:3021/api/hello -H 'Origin: http://localhost:5173'
+  //   curl -i http://localhost:3022/api/hello -H 'Origin: http://localhost:5173'
 
   const CORS = {
     // "*" cannot be combined with credentials (cookies): browsers refuse it.
@@ -1949,7 +2092,7 @@ async function start21() {
   };
 
   const server = Bun.serve({
-    port: 3021,
+    port: 3022,
     async fetch(req) {
       if (req.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: CORS });
@@ -1964,27 +2107,27 @@ async function start21() {
     },
   });
 
-  console.log(`21 cors → ${server.url}`);
-    push("21", server);
+  console.log(`22 cors → ${server.url}`);
+    push("22", server);
 
 }
 
 
-// ========== [22] 22_upload.ts ==========
+// ========== [23] 23_upload.ts ==========
 // Level: Intermediate. Multipart upload.
 // req.formData() parses multipart/form-data; parts with a filename become
 // File objects (a Blob plus name/type). Bun.write(path, file) streams the
 // File to disk.
-// Missing on purpose to keep it short (see [71] for a hardened version):
+// Missing on purpose to keep it short (see [75] for a hardened version):
 // no allow-list of types, no per-file size limit (the only limit is the
 // default maxRequestBodySize of 128 MB), no check that a ".png" is really
 // a PNG, and file.type is whatever the client claimed.
-async function start22() {
-  // 22. 파일 업로드 — multipart formData + File + Bun.write
-  // 실행: bun --hot 22_upload.ts
+async function start23() {
+  // 23. 파일 업로드 — multipart formData + File + Bun.write
+  // 실행: bun --hot 23_upload.ts
   // 확인:
   //   echo 'hello upload' > /tmp/demo.txt
-  //   curl -F 'file=@/tmp/demo.txt' http://localhost:3022/upload
+  //   curl -F 'file=@/tmp/demo.txt' http://localhost:3023/upload
   //   ls ./_uploads
 
   const UPLOAD_DIR = `${BASE_DIR}/_uploads`;
@@ -1994,11 +2137,11 @@ async function start22() {
   await Bun.write(`${UPLOAD_DIR}/.keep`, "");
 
   const server = Bun.serve({
-    port: 3022,
+    port: 3023,
     routes: {
       "/": () =>
         new Response(
-          "POST /upload (multipart, field name: file)\n예: curl -F 'file=@./readme.md' http://localhost:3022/upload\n",
+          "POST /upload (multipart, field name: file)\n예: curl -F 'file=@./readme.md' http://localhost:3023/upload\n",
         ),
       "/upload": {
         POST: async (req) => {
@@ -2033,23 +2176,23 @@ async function start22() {
     },
   });
 
-  console.log(`22 upload → ${server.url}`);
-    push("22", server);
+  console.log(`23 upload → ${server.url}`);
+    push("23", server);
 
 }
 
 
-// ========== [23] 23_sse.ts ==========
+// ========== [24] 24_sse.ts ==========
 // Level: Intermediate. Server-Sent Events (SSE).
 // One GET whose response never ends; the server writes blocks of
 // "data: ...\n\n". Browsers read it with EventSource. SSE is one-way
-// (server -> client) and plain HTTP; WebSocket ([20]) is two-way.
-async function start23() {
-  // 23. SSE (Server-Sent Events) — 실시간 이벤트 스트림
-  // 실행: bun --hot 23_sse.ts
+// (server -> client) and plain HTTP; WebSocket ([21]) is two-way.
+async function start24() {
+  // 24. SSE (Server-Sent Events) — 실시간 이벤트 스트림
+  // 실행: bun --hot 24_sse.ts
   // 확인:
-  //   curl -N http://localhost:3023/events
-  //   브라우저: http://localhost:3023/
+  //   curl -N http://localhost:3024/events
+  //   브라우저: http://localhost:3024/
 
   const html = `<!DOCTYPE html>
   <html lang="ko">
@@ -2076,7 +2219,7 @@ async function start23() {
   </html>`;
 
   const server = Bun.serve({
-    port: 3023,
+    port: 3024,
     routes: {
       "/": () =>
         new Response(html, {
@@ -2128,23 +2271,23 @@ async function start23() {
     },
   });
 
-  console.log(`23 sse → ${server.url}`);
-    push("23", server);
+  console.log(`24 sse → ${server.url}`);
+    push("24", server);
 
 }
 
 
-// ========== [24] 24_auth.ts ==========
+// ========== [25] 25_auth.ts ==========
 // Level: Intermediate. Bearer token guard.
 // The pattern "return a Response to stop, or null to continue" composes
 // well with `??`: requireBearer(...) ?? realHandler().
-async function start24() {
-  // 24. Bearer 토큰 인증 가드
-  // 실행: bun --hot 24_auth.ts
+async function start25() {
+  // 25. Bearer 토큰 인증 가드
+  // 실행: bun --hot 25_auth.ts
   // 확인:
-  //   curl -i http://localhost:3024/public
-  //   curl -i http://localhost:3024/admin
-  //   curl -i http://localhost:3024/admin -H 'Authorization: Bearer s3cret'
+  //   curl -i http://localhost:3025/public
+  //   curl -i http://localhost:3025/admin
+  //   curl -i http://localhost:3025/admin -H 'Authorization: Bearer s3cret'
 
   const TOKEN = "s3cret";
 
@@ -2169,7 +2312,7 @@ async function start24() {
   }
 
   const server = Bun.serve({
-    port: 3024,
+    port: 3025,
     routes: {
       "/": () =>
         new Response(
@@ -2185,20 +2328,20 @@ async function start24() {
     },
   });
 
-  console.log(`24 auth → ${server.url}`);
-    push("24", server);
+  console.log(`25 auth → ${server.url}`);
+    push("25", server);
 
 }
 
 
-// ========== [25] 25_middleware.ts ==========
+// ========== [26] 26_middleware.ts ==========
 // Level: Intermediate. Middleware without a framework.
 // A middleware is (req, next) => Promise<Response>: it can act before
 // next(), after next(), or not call next() at all (e.g. auth failure).
-async function start25() {
-  // 25. 미들웨어 합성 — 로깅 · 타이밍 · 헤더 (프레임워크 없이)
-  // 실행: bun --hot 25_middleware.ts
-  // 확인: curl -i http://localhost:3025/api/hello
+async function start26() {
+  // 26. 미들웨어 합성 — 로깅 · 타이밍 · 헤더 (프레임워크 없이)
+  // 실행: bun --hot 26_middleware.ts
+  // 확인: curl -i http://localhost:3026/api/hello
 
   type Mw = (
     req: Request,
@@ -2245,25 +2388,25 @@ async function start25() {
   };
 
   const server = Bun.serve({
-    port: 3025,
+    port: 3026,
     fetch: compose([withLog, withRequestId], handler),
   });
 
-  console.log(`25 middleware → ${server.url}`);
-    push("25", server);
+  console.log(`26 middleware → ${server.url}`);
+    push("26", server);
 
 }
 
 
-// ========== [26] 26_static_dir.ts ==========
+// ========== [27] 27_static_dir.ts ==========
 // Level: Intermediate. Serving a directory by hand.
-async function start26() {
-  // 26. 정적 디렉터리 서버 — 경로 이탈(..) 방지
-  // 실행: bun --hot 26_static_dir.ts
+async function start27() {
+  // 27. 정적 디렉터리 서버 — 경로 이탈(..) 방지
+  // 실행: bun --hot 27_static_dir.ts
   // 확인:
-  //   curl http://localhost:3026/
-  //   curl http://localhost:3026/about.html
-  //   curl http://localhost:3026/%2e%2e/secret.txt     # 400 (.. 인코딩)
+  //   curl http://localhost:3027/
+  //   curl http://localhost:3027/about.html
+  //   curl http://localhost:3027/%2e%2e/secret.txt     # 400 (.. 인코딩)
 
   const PUBLIC = `${BASE_DIR}/_public`;
 
@@ -2278,7 +2421,7 @@ async function start26() {
   await Bun.write(`${PUBLIC}/hello.txt`, "static dir ok\n");
 
   const server = Bun.serve({
-    port: 3026,
+    port: 3027,
     async fetch(req) {
       const url = new URL(req.url);
       // FIXED (was: a malformed escape like /%E0%A4%A -> URIError -> 500 with
@@ -2304,29 +2447,29 @@ async function start26() {
     },
   });
 
-  console.log(`26 static_dir → ${server.url}`);
-    push("26", server);
+  console.log(`27 static_dir → ${server.url}`);
+    push("27", server);
 
 }
 
 
-// ========== [27] 27_stream.ts ==========
+// ========== [28] 28_stream.ts ==========
 // Level: Intermediate. Streaming a response.
 // With a ReadableStream body, Bun sends each enqueued chunk as soon as it
 // exists (Transfer-Encoding: chunked); use `curl -N` to see it arrive.
-async function start27() {
-  // 27. ReadableStream 응답 — 청크 스트리밍
-  // 실행: bun --hot 27_stream.ts
-  // 확인: curl -N http://localhost:3027/stream
+async function start28() {
+  // 28. ReadableStream 응답 — 청크 스트리밍
+  // 실행: bun --hot 28_stream.ts
+  // 확인: curl -N http://localhost:3028/stream
 
   const server = Bun.serve({
-    port: 3027,
+    port: 3028,
     routes: {
       "/": () => new Response("GET /stream 으로 청크 스트림을 받아보세요"),
       "/stream": () => {
         // start() pushes everything regardless of how fast the client reads.
         // For large or endless data use pull(), which the runtime calls only when
-        // the consumer wants more (backpressure); see [39].
+        // the consumer wants more (backpressure); see [41].
         const stream = new ReadableStream({
           async start(controller) {
             const enc = new TextEncoder();
@@ -2347,21 +2490,21 @@ async function start27() {
     },
   });
 
-  console.log(`27 stream → ${server.url}`);
-    push("27", server);
+  console.log(`28 stream → ${server.url}`);
+    push("28", server);
 
 }
 
 
-// ========== [28] 28_ws_pubsub.ts ==========
+// ========== [29] 29_ws_pubsub.ts ==========
 // Level: Intermediate. WebSocket rooms with pub/sub.
 // ws.subscribe(topic) joins a topic; server.publish(topic, msg) sends to
 // every subscriber from native code, with no JS loop over sockets.
 // ws.data (set in upgrade()) holds per-connection state.
-async function start28() {
-  // 28. WebSocket Pub/Sub — 방(room) 채팅
-  // 실행: bun --hot 28_ws_pubsub.ts
-  // 확인: 브라우저 http://localhost:3028/?user=ada&room=lobby
+async function start29() {
+  // 29. WebSocket Pub/Sub — 방(room) 채팅
+  // 실행: bun --hot 29_ws_pubsub.ts
+  // 확인: 브라우저 http://localhost:3029/?user=ada&room=lobby
   //       다른 탭에서 ?user=bob&room=lobby
 
   type WsData = { username: string; room: string };
@@ -2405,7 +2548,7 @@ async function start28() {
   </html>`;
 
   const server = Bun.serve({
-    port: 3028,
+    port: 3029,
     routes: {
       "/": () =>
         new Response(html, {
@@ -2438,7 +2581,7 @@ async function start28() {
         // `server` is the const being initialized by Bun.serve(...). Using it
         // inside a handler is fine because handlers run later, after it exists.
         // user and room come straight from the query string with no auth: anyone
-        // can join any room under any name ([65] has the same issue).
+        // can join any room under any name ([69] has the same issue).
         server.publish(ws.data.room, `* ${ws.data.username} joined`);
       },
       message(ws, message) {
@@ -2453,25 +2596,25 @@ async function start28() {
     },
   });
 
-  console.log(`28 ws_pubsub → ${server.url}?user=ada&room=lobby`);
-    push("28", server);
+  console.log(`29 ws_pubsub → ${server.url}?user=ada&room=lobby`);
+    push("29", server);
 
 }
 
 
-// ========== [29] 29_crud.ts ==========
+// ========== [30] 30_crud.ts ==========
 // Level: Intermediate. REST CRUD on a Map.
 // PUT replaces the whole item (all fields required); PATCH changes only
 // the fields sent; DELETE answers 204 No Content.
-async function start29() {
-  // 29. REST CRUD — GET/POST/PUT/PATCH/DELETE
-  // 실행: bun --hot 29_crud.ts
+async function start30() {
+  // 30. REST CRUD — GET/POST/PUT/PATCH/DELETE
+  // 실행: bun --hot 30_crud.ts
   // 확인:
-  //   curl http://localhost:3029/api/items
-  //   curl -X POST http://localhost:3029/api/items -H 'Content-Type: application/json' -d '{"name":"pen"}'
-  //   curl -X PUT http://localhost:3029/api/items/1 -H 'Content-Type: application/json' -d '{"name":"pencil","qty":10}'
-  //   curl -X PATCH http://localhost:3029/api/items/1 -H 'Content-Type: application/json' -d '{"qty":3}'
-  //   curl -X DELETE http://localhost:3029/api/items/1
+  //   curl http://localhost:3030/api/items
+  //   curl -X POST http://localhost:3030/api/items -H 'Content-Type: application/json' -d '{"name":"pen"}'
+  //   curl -X PUT http://localhost:3030/api/items/1 -H 'Content-Type: application/json' -d '{"name":"pencil","qty":10}'
+  //   curl -X PATCH http://localhost:3030/api/items/1 -H 'Content-Type: application/json' -d '{"qty":3}'
+  //   curl -X DELETE http://localhost:3030/api/items/1
 
   type Item = { id: string; name: string; qty: number };
 
@@ -2495,7 +2638,7 @@ async function start29() {
   const isQty = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0;
 
   const server = Bun.serve({
-    port: 3029,
+    port: 3030,
     routes: {
       "/api/items": {
         GET: () => Response.json([...items.values()]),
@@ -2575,27 +2718,27 @@ async function start29() {
     },
   });
 
-  console.log(`29 crud → ${server.url}`);
-    push("29", server);
+  console.log(`30 crud → ${server.url}`);
+    push("30", server);
 
 }
 
 
-// ========== [30] 30_sqlite.ts ==========
-// ★ RELATED — official sample "PostgreSQL" uses Bun.sql, the newer API for Postgres/MySQL/SQLite: [48].
+// ========== [31] 31_sqlite.ts ==========
+// ★ RELATED — official sample "PostgreSQL" uses Bun.sql, the newer API for Postgres/MySQL/SQLite: [50].
 // Level: Intermediate. REST over bun:sqlite.
 // bun:sqlite is SQLite compiled into Bun with a synchronous API. db.query()
 // compiles SQL once and caches the prepared statement. `?` placeholders
 // bind values safely: user input is never pasted into SQL text.
-async function start30() {
-  // 30. SQLite REST — bun:sqlite (내장, npm 패키지 아님)
-  // 실행: bun --hot 30_sqlite.ts
+async function start31() {
+  // 31. SQLite REST — bun:sqlite (내장, npm 패키지 아님)
+  // 실행: bun --hot 31_sqlite.ts
   // 확인:
-  //   curl http://localhost:3030/api/posts
-  //   curl -X POST http://localhost:3030/api/posts \
+  //   curl http://localhost:3031/api/posts
+  //   curl -X POST http://localhost:3031/api/posts \
   //     -H 'Content-Type: application/json' \
   //     -d '{"title":"hello","content":"world"}'
-  //   curl http://localhost:3030/api/posts/<id>
+  //   curl http://localhost:3031/api/posts/<id>
 
   const dbPath = `${BASE_DIR}/_data/posts.db`;
   await Bun.write(`${BASE_DIR}/_data/.keep`, "");
@@ -2621,7 +2764,7 @@ async function start30() {
   const deletePost = db.query("DELETE FROM posts WHERE id = ?");
 
   const server = Bun.serve({
-    port: 3030,
+    port: 3031,
     routes: {
       "/api/posts": {
         GET: () => Response.json(listPosts.all()),
@@ -2664,25 +2807,217 @@ async function start30() {
     },
   });
 
-  console.log(`30 sqlite → ${server.url} (db: ${dbPath})`);
-    push("30", server);
+  console.log(`31 sqlite → ${server.url} (db: ${dbPath})`);
+    push("31", server);
 
 }
 
 
-// ========== [31] 31_metrics.ts ==========
+// ========== [32] 32_sqlite_354.ts ==========
+// NEW in Bun 1.4.5 edition.
+async function start32() {
+  // Level: Intermediate. SQLite 3.54: safe schema changes, and an authorizer
+  // for queries you did not write.
+  // Bun 1.4.5 updates its bundled SQLite from 3.53.4 to 3.54.1 (used by both
+  // bun:sqlite and node:sqlite). Two 3.54 changes can break existing code:
+  //  1. ALTER TABLE can no longer ADD, RENAME or DROP a column named rowid,
+  //     oid or _rowid_. Every ordinary table has a hidden 64-bit row id
+  //     reachable under those three names; a real column with that name
+  //     hides it, which is a classic source of bugs. What to do: never use
+  //     those names, declare `id INTEGER PRIMARY KEY` (it BECOMES the row
+  //     id), and check column names before ALTER TABLE, so the API answers
+  //     the same 422 on every SQLite version (POST /columns). GET / tries the
+  //     raw ALTER TABLE and shows what this SQLite really does.
+  //  2. The authorizer is now also asked about functions used in DEFAULT
+  //     expressions, such as `created TEXT DEFAULT (datetime('now'))`. An
+  //     allow-list that forgot datetime makes an INSERT fail where it used
+  //     to work (GET /authorizer).
+  // On macOS Bun uses the SYSTEM SQLite unless SQLITE_LIB (top of the file)
+  // switched to Homebrew's, so these rules apply there only when the library
+  // in use is 3.54 or newer. Every answer includes the version.
+  //
+  // What an authorizer is: while SQLite COMPILES a statement it calls
+  // fn(action, arg1, arg2, dbName, trigger) for every operation it is about
+  // to do (SELECT, READ table.column, FUNCTION name, INSERT, DELETE ...).
+  // Returning constants.SQLITE_DENY makes prepare() throw "not authorized".
+  // That makes it the right guard when users may send their own SELECT (a
+  // report builder): allow SELECT, reading the allowed tables and a short
+  // list of functions, deny everything else, including recursive CTEs that
+  // could loop forever. It is a second wall, not a replacement for a
+  // read-only database file and a row limit.
+  // bun:sqlite has no authorizer; node:sqlite (Node's API, built into Bun
+  // too) has db.setAuthorizer(fn). This example uses both.
+  // Try:
+  //   curl localhost:3032/
+  //   curl -X POST localhost:3032/columns -H 'Content-Type: application/json' -d '{"name":"rowid"}'
+  //   curl -X POST localhost:3032/columns -H 'Content-Type: application/json' -d '{"name":"note"}'
+  //   curl -X POST localhost:3032/report -H 'Content-Type: application/json' \
+  //     -d '{"sql":"SELECT name, upper(name) AS shout, price FROM products"}'
+  //   curl -X POST localhost:3032/report -H 'Content-Type: application/json' -d '{"sql":"SELECT * FROM users"}'
+  //   curl -X POST localhost:3032/report -H 'Content-Type: application/json' -d '{"sql":"DELETE FROM products"}'
+  //   curl localhost:3032/authorizer
+
+  const { DatabaseSync, constants: SQ } = await import("node:sqlite");
+  const RESERVED = new Set(["rowid", "oid", "_rowid_"]);
+  const SEED: [string, number][] = [["apple", 3], ["bread", 5], ["cheese", 9]];
+
+  // --- 1. bun:sqlite: the schema we change through the API -----------------
+  const db = new Database(":memory:");
+  db.exec("CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT NOT NULL, price INTEGER NOT NULL)");
+  const insertProduct = db.query("INSERT INTO products (name, price) VALUES (?, ?)");
+  for (const [name, price] of SEED) insertProduct.run(name, price);
+  const sqliteVersion = (db.query("SELECT sqlite_version() AS v").get() as { v: string }).v;
+  const rules354 = Bun.semver.satisfies(sqliteVersion, ">=3.54.0");
+  const columns = () => (db.query("PRAGMA table_info(products)").all() as { name: string }[]).map((c) => c.name);
+
+  // What THIS SQLite does with the raw statement, on a scratch table.
+  function rawAlter(): { refused: boolean; error: string | null } {
+    const scratch = new Database(":memory:");
+    try {
+      scratch.exec("CREATE TABLE t (a TEXT)");
+      scratch.exec("ALTER TABLE t ADD COLUMN rowid TEXT");
+      return { refused: false, error: null };
+    } catch (err) {
+      return { refused: true, error: (err as Error).message };
+    } finally {
+      scratch.close();
+    }
+  }
+
+  // --- 2. node:sqlite: a report database guarded by an authorizer ----------
+  const reports = new DatabaseSync(":memory:");
+  reports.exec(`
+    CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT NOT NULL, price INTEGER NOT NULL);
+    CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT NOT NULL, password_hash TEXT NOT NULL);
+    INSERT INTO users (email, password_hash) VALUES ('ada@example.com', '$argon2id$not-for-you');
+  `);
+  const seedReports = reports.prepare("INSERT INTO products (name, price) VALUES (?, ?)");
+  for (const [name, price] of SEED) seedReports.run(name, price);
+  // Set the authorizer AFTER the setup above: it applies to every later
+  // prepare() on this connection, including our own.
+  const READABLE = new Set(["products"]);
+  const FUNCTIONS = new Set(["upper", "lower", "length", "round", "abs", "count", "sum", "avg", "min", "max", "coalesce"]);
+  reports.setAuthorizer((action: number, arg1: string | null, arg2: string | null) => {
+    switch (action) {
+      case SQ.SQLITE_SELECT:
+        return SQ.SQLITE_OK;
+      case SQ.SQLITE_READ: // arg1 = table, arg2 = column
+        return arg1 !== null && READABLE.has(arg1) ? SQ.SQLITE_OK : SQ.SQLITE_DENY;
+      case SQ.SQLITE_FUNCTION: // arg2 = function name
+        return arg2 !== null && FUNCTIONS.has(arg2.toLowerCase()) ? SQ.SQLITE_OK : SQ.SQLITE_DENY;
+      default: // INSERT, UPDATE, DELETE, PRAGMA, ATTACH, RECURSIVE, ...
+        return SQ.SQLITE_DENY;
+    }
+  });
+
+  const server = Bun.serve({
+    port: 3032,
+    routes: {
+      "/": () =>
+        Response.json({
+          sqlite: sqliteVersion,
+          source: SQLITE_SOURCE,
+          rules354,
+          rawAlterAddRowid: rawAlter(), // refused: true on 3.54+
+          columns: columns(),
+        }),
+      "/columns": {
+        GET: () => Response.json({ columns: columns() }),
+        POST: async (req) => {
+          const body = (await readJsonCapped(req, 1024)) as { name?: unknown };
+          const name = typeof body.name === "string" ? body.name : "";
+          // An identifier cannot be a ? placeholder, so it must be checked
+          // against a strict pattern before it goes into the SQL text.
+          if (!/^[A-Za-z_][A-Za-z0-9_]{0,30}$/.test(name)) throw new HttpError(422, "name: letters, digits and _, max 31 characters");
+          if (RESERVED.has(name.toLowerCase())) {
+            throw new HttpError(422, `"${name}" is reserved: it would hide the table's row id (SQLite 3.54+ refuses it anyway)`);
+          }
+          const existing = columns();
+          if (existing.some((c) => c.toLowerCase() === name.toLowerCase())) throw new HttpError(409, `column "${name}" already exists`);
+          if (existing.length >= 16) throw new HttpError(409, "this demo table is full (16 columns): restart allblue.ts");
+          db.exec(`ALTER TABLE products ADD COLUMN "${name}" TEXT`);
+          return Response.json({ added: name, columns: columns() }, { status: 201 });
+        },
+      },
+      "/report": {
+        POST: async (req) => {
+          const body = (await readJsonCapped(req, 4096)) as { sql?: unknown };
+          if (typeof body.sql !== "string" || body.sql.length > 1000) throw new HttpError(422, "sql: a string of at most 1000 characters");
+          let stmt;
+          try {
+            stmt = reports.prepare(body.sql); // the authorizer runs HERE
+          } catch (err) {
+            // A denied READ fails with errcode 23 (SQLITE_AUTH, "access to
+            // users.email is prohibited"); a denied FUNCTION or statement
+            // with errcode 1 and "not authorized". Both are the user's
+            // fault, but a 403, not a syntax error.
+            const { message, errcode } = err as Error & { errcode?: number };
+            const denied = errcode === 23 || /not authorized|prohibited/.test(message);
+            throw new HttpError(denied ? 403 : 400, message);
+          }
+          const rows = stmt.all().slice(0, 100); // and a row limit on top
+          return Response.json({ rows, count: rows.length });
+        },
+      },
+      "/authorizer": () => {
+        // Change 2: is datetime() in a DEFAULT expression shown to the authorizer?
+        const scratch = new DatabaseSync(":memory:");
+        scratch.exec("CREATE TABLE events (id INTEGER PRIMARY KEY, kind TEXT NOT NULL, created TEXT NOT NULL DEFAULT (datetime('now')))");
+        const nodeSqlite = (scratch.prepare("SELECT sqlite_version() AS v").get() as { v: string }).v;
+        const asked: string[] = [];
+        scratch.setAuthorizer((action: number, _arg1: string | null, arg2: string | null) => {
+          if (action !== SQ.SQLITE_FUNCTION) return SQ.SQLITE_OK;
+          asked.push(String(arg2));
+          return arg2 === "datetime" ? SQ.SQLITE_DENY : SQ.SQLITE_OK; // an allow-list that forgot datetime
+        });
+        let insert = "ok";
+        try {
+          scratch.prepare("INSERT INTO events (kind) VALUES (?)").run("signup"); // no function in OUR SQL
+        } catch (err) {
+          insert = `denied: ${(err as Error).message}`;
+        }
+        scratch.close();
+        const is354 = Bun.semver.satisfies(nodeSqlite, ">=3.54.0");
+        return Response.json({
+          sqlite: nodeSqlite,
+          rules354: is354,
+          functionsAsked: asked,
+          insert,
+          why: is354
+            ? "SQLite 3.54+ asks the authorizer about datetime() in the DEFAULT, so this allow-list blocks the INSERT"
+            : "before SQLite 3.54 functions in DEFAULT expressions skip the authorizer, so the INSERT works",
+        });
+      },
+    },
+    fetch: () => Response.json({ error: "Not Found" }, { status: 404 }),
+    error: errorResponse,
+  });
+
+  console.log(`32 sqlite_354 → ${server.url}  (SQLite ${sqliteVersion}${rules354 ? "" : ", 3.54 rules not active"})`);
+  register("32", {
+    url: server.url,
+    stop: async (force?: boolean) => {
+      await server.stop(force); // let in-flight requests finish first
+      db.close();
+      reports.close();
+    },
+  });
+}
+
+
+// ========== [33] 33_metrics.ts ==========
 // Level: Intermediate. Server introspection.
 // pendingRequests / pendingWebSockets / subscriberCount() are live counters
 // kept by the native server; cheap enough for a /metrics endpoint.
-async function start31() {
-  // 31. 메트릭 · requestIP · Server API
-  // 실행: bun --hot 31_metrics.ts
+async function start33() {
+  // 33. 메트릭 · requestIP · Server API
+  // 실행: bun --hot 33_metrics.ts
   // 확인:
-  //   curl http://localhost:3031/whoami
-  //   curl http://localhost:3031/metrics
+  //   curl http://localhost:3033/whoami
+  //   curl http://localhost:3033/metrics
 
   const server = Bun.serve({
-    port: 3031,
+    port: 3033,
     routes: {
       "/": () =>
         new Response("GET /whoami | GET /metrics | WS /ws (메트릭용)\n"),
@@ -2725,26 +3060,26 @@ async function start31() {
     },
   });
 
-  console.log(`31 metrics → ${server.url}`);
-    push("31", server);
+  console.log(`33 metrics → ${server.url}`);
+    push("33", server);
 
 }
 
 
-// ========== [32] 32_ratelimit.ts ==========
+// ========== [34] 34_ratelimit.ts ==========
 // Level: Intermediate. Fixed-window rate limiting.
 // Each IP gets LIMIT requests per WINDOW_MS; then 429 + Retry-After.
-async function start32() {
-  // 32. Rate limit — IP 기준 고정 윈도우 (인메모리)
-  // 실행: bun --hot 32_ratelimit.ts
-  // 확인: for i in $(seq 1 8); do curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3032/; done
+async function start34() {
+  // 34. Rate limit — IP 기준 고정 윈도우 (인메모리)
+  // 실행: bun --hot 34_ratelimit.ts
+  // 확인: for i in $(seq 1 8); do curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3034/; done
   //       (LIMIT=5 → 앞 5개는 200, 이후 429)
 
   // FIXED (was: entries were never removed, so memory grew with every
   // distinct IP). Expired entries are now swept at most once per window,
   // lazily, inside rateLimit(): no timer needed.
   // A fixed window still allows a burst of 2 x LIMIT across a window
-  // boundary; a token bucket ([69]) smooths that. State is per process.
+  // boundary; a token bucket ([73]) smooths that. State is per process.
   const hits = new Map<string, { count: number; resetAt: number }>();
   const LIMIT = 5;
   const WINDOW_MS = 10_000;
@@ -2773,7 +3108,7 @@ async function start32() {
   }
 
   const server = Bun.serve({
-    port: 3032,
+    port: 3034,
     fetch(req, srv) {
       const ip = srv.requestIP(req)?.address ?? "unknown";
       const { ok, remaining, resetAt } = rateLimit(ip);
@@ -2802,26 +3137,26 @@ async function start32() {
     },
   });
 
-  console.log(`32 ratelimit → ${server.url} (limit ${LIMIT}/${WINDOW_MS}ms)`);
-    push("32", server);
+  console.log(`34 ratelimit → ${server.url} (limit ${LIMIT}/${WINDOW_MS}ms)`);
+    push("34", server);
 
 }
 
 
-// ========== [33] 33_graceful.ts ==========
+// ========== [35] 35_graceful.ts ==========
 // Level: Intermediate. Graceful shutdown.
 // server.stop() stops accepting connections and resolves when in-flight
 // requests are done; server.stop(true) cuts them off.
-async function start33() {
-  // 33. Graceful shutdown — SIGINT/SIGTERM → server.stop()
-  // 실행: bun 33_graceful.ts
+async function start35() {
+  // 35. Graceful shutdown — SIGINT/SIGTERM → server.stop()
+  // 실행: bun 35_graceful.ts
   // 확인:
-  //   터미널1: bun 33_graceful.ts
-  //   터미널2: curl http://localhost:3033/slow   # 0.8초 걸리는 요청
+  //   터미널1: bun 35_graceful.ts
+  //   터미널2: curl http://localhost:3035/slow   # 0.8초 걸리는 요청
   //   터미널1: Ctrl+C  — in-flight 끝나면 종료
 
   const server = Bun.serve({
-    port: 3033,
+    port: 3035,
     routes: {
       "/": () => new Response("GET /slow 후 Ctrl+C 로 graceful stop 테스트"),
       "/slow": async () => {
@@ -2842,25 +3177,25 @@ async function start33() {
   //   await server.stop(true);  // or cut in-flight requests off
 
   // [합본] SIGINT/SIGTERM 은 파일 하단 공통 shutdown 사용
-  console.log(`33 graceful → ${server.url} (Ctrl+C)`);
-    push("33", server);
+  console.log(`35 graceful → ${server.url} (Ctrl+C)`);
+    push("35", server);
 
 }
 
 
-// ========== [34] 34_range.ts ==========
+// ========== [36] 36_range.ts ==========
 // Level: Intermediate. Range requests by hand.
 // Verified on 1.4.4: new Response(Bun.file(path)) already answers Range
 // requests with 206 by itself. This manual version exists to show how it
 // works: parse "bytes=start-end", slice the file lazily with
 // file.slice(start, end), answer 206 + Content-Range, or 416 when invalid.
-async function start34() {
-  // 34. Range 요청 — Bun.file.slice (부분 다운로드 / 미디어 seek)
-  // 실행: bun --hot 34_range.ts
+async function start36() {
+  // 36. Range 요청 — Bun.file.slice (부분 다운로드 / 미디어 seek)
+  // 실행: bun --hot 36_range.ts
   // 확인:
-  //   curl -i http://localhost:3034/file
-  //   curl -i -H 'Range: bytes=0-11' http://localhost:3034/file
-  //   curl -i -H 'Range: bytes=12-' http://localhost:3034/file
+  //   curl -i http://localhost:3036/file
+  //   curl -i -H 'Range: bytes=0-11' http://localhost:3036/file
+  //   curl -i -H 'Range: bytes=12-' http://localhost:3036/file
 
   const FILE = `${BASE_DIR}/_data/range-demo.txt`;
   await Bun.write(
@@ -2869,7 +3204,7 @@ async function start34() {
   );
 
   const server = Bun.serve({
-    port: 3034,
+    port: 3036,
     routes: {
       "/": () =>
         new Response(
@@ -2940,24 +3275,24 @@ async function start34() {
     },
   });
 
-  console.log(`34 range → ${server.url}`);
-    push("34", server);
+  console.log(`36 range → ${server.url}`);
+    push("36", server);
 
 }
 
 
-// ========== [35] 35_session.ts ==========
+// ========== [37] 37_session.ts ==========
 // Level: Intermediate. Cookie sessions.
 // The cookie holds only a random id; the data stays on the server.
-async function start35() {
-  // 35. 쿠키 세션 — 로그인 쿠키로 보호 라우트
-  // 실행: bun --hot 35_session.ts
+async function start37() {
+  // 37. 쿠키 세션 — 로그인 쿠키로 보호 라우트
+  // 실행: bun --hot 37_session.ts
   // 확인:
-  //   curl -i -c /tmp/s.txt -b /tmp/s.txt -X POST http://localhost:3035/login \
+  //   curl -i -c /tmp/s.txt -b /tmp/s.txt -X POST http://localhost:3037/login \
   //     -H 'Content-Type: application/json' -d '{"user":"ada"}'
-  //   curl -i -c /tmp/s.txt -b /tmp/s.txt http://localhost:3035/me
-  //   curl -i -c /tmp/s.txt -b /tmp/s.txt -X POST http://localhost:3035/logout
-  //   curl -i -c /tmp/s.txt -b /tmp/s.txt http://localhost:3035/me
+  //   curl -i -c /tmp/s.txt -b /tmp/s.txt http://localhost:3037/me
+  //   curl -i -c /tmp/s.txt -b /tmp/s.txt -X POST http://localhost:3037/logout
+  //   curl -i -c /tmp/s.txt -b /tmp/s.txt http://localhost:3037/me
 
   type Session = { user: string; createdAt: number };
 
@@ -2969,7 +3304,7 @@ async function start35() {
   const SESSION_TTL_MS = 60 * 60 * 1000;
 
   const server = Bun.serve({
-    port: 3035,
+    port: 3037,
     routes: {
       "/": () =>
         new Response(
@@ -3021,14 +3356,14 @@ async function start35() {
     },
   });
 
-  console.log(`35 session → ${server.url}`);
-    push("35", server);
+  console.log(`37 session → ${server.url}`);
+    push("37", server);
 
 }
 
 
-// ========== [36] 36_validation.ts ==========
-async function start36() {
+// ========== [38] 38_validation.ts ==========
+async function start38() {
   // Level: Intermediate. Validating JSON input properly.
   // Status codes that tell the client exactly what went wrong:
   //   415 wrong Content-Type   413 body too big   400 not parseable JSON
@@ -3039,8 +3374,8 @@ async function start36() {
   // The validator returns a fully typed object, so code after it never
   // touches `unknown` data again.
   // Try:
-  //   curl -X POST localhost:3036/api/signup -H 'Content-Type: application/json' -d '{"email":"x","age":-1,"emial":1}'
-  //   curl -X POST localhost:3036/api/signup -H 'Content-Type: application/json' -d '{"email":"a@b.co","name":"Ada","age":36}'
+  //   curl -X POST localhost:3038/api/signup -H 'Content-Type: application/json' -d '{"email":"x","age":-1,"emial":1}'
+  //   curl -X POST localhost:3038/api/signup -H 'Content-Type: application/json' -d '{"email":"a@b.co","name":"Ada","age":36}'
 
   type Signup = { email: string; name: string; age: number; tags: string[]; newsletter: boolean };
 
@@ -3072,7 +3407,7 @@ async function start36() {
   }
 
   const server = Bun.serve({
-    port: 3036,
+    port: 3038,
     routes: {
       "/api/signup": {
         POST: async (req) => {
@@ -3085,13 +3420,13 @@ async function start36() {
     error: errorResponse,
   });
 
-  console.log(`36 validation → ${server.url}`);
-  register("36", server);
+  console.log(`38 validation → ${server.url}`);
+  register("38", server);
 }
 
 
-// ========== [37] 37_rest_paging_ifmatch.ts ==========
-async function start37() {
+// ========== [39] 39_rest_paging_ifmatch.ts ==========
+async function start39() {
   // Level: Intermediate. A REST API with the three things real APIs need.
   // 1. LOCATION on create: POST answers 201 with "Location: /api/notes/7",
   //    the URL of the new item.
@@ -3108,8 +3443,8 @@ async function start37() {
   // SQLite runs in ":memory:" here, so data resets on restart. RETURNING *
   // gives back the written row in the same statement.
   // Try:
-  //   curl 'localhost:3037/api/notes?limit=2'
-  //   curl -i -X PATCH localhost:3037/api/notes/1 -H 'Content-Type: application/json' -H 'If-Match: "1"' -d '{"text":"edited"}'
+  //   curl 'localhost:3039/api/notes?limit=2'
+  //   curl -i -X PATCH localhost:3039/api/notes/1 -H 'Content-Type: application/json' -H 'If-Match: "1"' -d '{"text":"edited"}'
   //   (run it twice: the second time you get 412)
 
   type NoteRow = { id: number; text: string; tags: string; version: number; updated_at: string };
@@ -3151,7 +3486,7 @@ async function start37() {
   }
 
   const server = Bun.serve({
-    port: 3037,
+    port: 3039,
     routes: {
       "/api/notes": {
         GET: (req) => {
@@ -3195,13 +3530,13 @@ async function start37() {
     error: errorResponse,
   });
 
-  console.log(`37 rest_paging_ifmatch → ${server.url}`);
-  register("37", server);
+  console.log(`39 rest_paging_ifmatch → ${server.url}`);
+  register("39", server);
 }
 
 
-// ========== [38] 38_etag_304.ts ==========
-async function start38() {
+// ========== [40] 40_etag_304.ts ==========
+async function start40() {
   // Level: Intermediate. Conditional GET: ETag / If-None-Match and
   // Last-Modified / If-Modified-Since.
   // The server labels a response with a fingerprint (ETag) and a date.
@@ -3213,9 +3548,9 @@ async function start38() {
   // "store it, but revalidate every time", which is exactly this dance.
   // A 304 must still carry the ETag so the client can keep using it.
   // Try:
-  //   curl -i localhost:3038/report             (note the ETag)
-  //   curl -i localhost:3038/report -H 'If-None-Match: "<etag>"'   -> 304
-  //   curl -X POST localhost:3038/report/bump    (changes the content)
+  //   curl -i localhost:3040/report             (note the ETag)
+  //   curl -i localhost:3040/report -H 'If-None-Match: "<etag>"'   -> 304
+  //   curl -X POST localhost:3040/report/bump    (changes the content)
 
   let version = 1;
   let body = "";
@@ -3236,7 +3571,7 @@ async function start38() {
   }
 
   const server = Bun.serve({
-    port: 3038,
+    port: 3040,
     routes: {
       "/report": (req) => {
         const headers = { ETag: etag, "Last-Modified": lastModified.toUTCString(), "Cache-Control": "no-cache" };
@@ -3260,13 +3595,13 @@ async function start38() {
     fetch: () => Response.json({ error: "Not Found" }, { status: 404 }),
   });
 
-  console.log(`38 etag_304 → ${server.url}`);
-  register("38", server);
+  console.log(`40 etag_304 → ${server.url}`);
+  register("40", server);
 }
 
 
-// ========== [39] 39_ndjson_stream.ts ==========
-async function start39() {
+// ========== [41] 41_ndjson_stream.ts ==========
+async function start41() {
   // Level: Intermediate. Streaming a large result as NDJSON.
   // Response.json(bigArray) builds the WHOLE string in memory before the
   // first byte is sent. NDJSON (one JSON value per line) can be produced
@@ -3278,8 +3613,8 @@ async function start39() {
   // The statement is created with db.prepare() per export and finalized
   // at the end: an unfinished iterator keeps its statement busy, so two
   // exports sharing one cached statement would corrupt each other.
-  // Reading it: see [74] (Bun's JSONL.parseChunk) or:
-  //   curl -N localhost:3039/export.ndjson | head -3
+  // Reading it: see [78] (Bun's JSONL.parseChunk) or:
+  //   curl -N localhost:3041/export.ndjson | head -3
 
   type Ev = { id: number; kind: string; at: string };
   const db = new Database(":memory:");
@@ -3315,7 +3650,7 @@ async function start39() {
   }
 
   const server = Bun.serve({
-    port: 3039,
+    port: 3041,
     routes: {
       "/export.ndjson": () => exportStream(),
       "/export.json": () => Response.json(db.query(`SELECT * FROM events ORDER BY id`).all()), // for comparison
@@ -3324,15 +3659,15 @@ async function start39() {
     fetch: () => Response.json({ error: "Not Found" }, { status: 404 }),
   });
 
-  console.log(`39 ndjson_stream → ${server.url}`);
-  register("39", server);
+  console.log(`41 ndjson_stream → ${server.url}`);
+  register("41", server);
 }
 
 
-// ========== [40] 40_slow_flaky.ts ==========
-async function start40() {
+// ========== [42] 42_slow_flaky.ts ==========
+async function start42() {
   // Level: Intermediate. Endpoints that misbehave on purpose, so clients
-  // can practice timeouts, cancellation and retries ([74] uses them).
+  // can practice timeouts, cancellation and retries ([78] uses them).
   // GET /slow?ms=2000
   //   Answers after ms. req.signal is an AbortSignal that Bun fires when
   //   the CLIENT disconnects (aborted, timed out, closed). Listening to it
@@ -3343,14 +3678,14 @@ async function start40() {
   //   200. 503 means "temporary, try again later". The key map is capped
   //   so it cannot be used to fill memory.
   // Try:
-  //   curl -m 1 'localhost:3040/slow?ms=3000'; curl localhost:3040/stats
-  //   for i in 1 2 3; do curl -s 'localhost:3040/flaky?key=k&fail=2'; echo; done
+  //   curl -m 1 'localhost:3042/slow?ms=3000'; curl localhost:3042/stats
+  //   for i in 1 2 3; do curl -s 'localhost:3042/flaky?key=k&fail=2'; echo; done
 
   const stats = { slow: 0, aborted: 0, flaky503: 0 };
   const counts = new Map<string, number>();
 
   const server = Bun.serve({
-    port: 3040,
+    port: 3042,
     routes: {
       "/slow": async (req) => {
         stats.slow++;
@@ -3386,13 +3721,13 @@ async function start40() {
     fetch: () => Response.json({ error: "Not Found" }, { status: 404 }),
   });
 
-  console.log(`40 slow_flaky → ${server.url}`);
-  register("40", server);
+  console.log(`42 slow_flaky → ${server.url}`);
+  register("42", server);
 }
 
 
-// ========== [41] 41_csrf.ts ==========
-async function start41() {
+// ========== [43] 43_csrf.ts ==========
+async function start43() {
   // Level: Intermediate. CSRF protection with Bun.CSRF.
   // Cross-Site Request Forgery: evil.com contains a form that POSTs to
   // your site; the browser attaches YOUR cookies, so the request looks
@@ -3409,7 +3744,7 @@ async function start41() {
   // Verified on 1.4.4: Bun.CSRF.verify("") THROWS ("Token must be a
   // non-empty string") instead of returning false, so empty tokens are
   // rejected first.
-  // Try: open http://localhost:3041/form in a browser and submit.
+  // Try: open http://localhost:3043/form in a browser and submit.
 
   const SECRET = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
   const secretFor = (sid: string) => `${SECRET}:${sid}`;
@@ -3424,7 +3759,7 @@ async function start41() {
   }
 
   const server = Bun.serve({
-    port: 3041,
+    port: 3043,
     routes: {
       "/form": (req) => {
         const token = Bun.CSRF.generate(secretFor(sessionOf(req)), { expiresIn: 10 * 60 * 1000 });
@@ -3456,13 +3791,13 @@ async function start41() {
     error: errorResponse,
   });
 
-  console.log(`41 csrf → ${server.url}form`);
-  register("41", server);
+  console.log(`43 csrf → ${server.url}form`);
+  register("43", server);
 }
 
 
-// ========== [42] 42_html_rewriter.ts ==========
-async function start42() {
+// ========== [44] 44_html_rewriter.ts ==========
+async function start44() {
   // Level: Intermediate. HTMLRewriter: change or read HTML as a stream.
   // You register CSS selectors and handlers; the rewriter calls them while
   // the HTML streams through, without building a DOM. That makes it fast
@@ -3471,7 +3806,7 @@ async function start42() {
   //   text(t)      text chunks; t.lastInTextNode marks the end of a node
   // Content inserted with { html: true } is parsed as HTML; without it,
   // it is escaped as text.
-  // Try: curl localhost:3042/rewritten ; curl localhost:3042/extract
+  // Try: curl localhost:3044/rewritten ; curl localhost:3044/extract
 
   const PAGE = `<!doctype html><html><head><title>Rewriter demo</title>
 <script>console.log("tracking")</script></head>
@@ -3517,7 +3852,7 @@ async function start42() {
 
   const html = (body: string) => new Response(body, { headers: { "Content-Type": "text/html; charset=utf-8" } });
   const server = Bun.serve({
-    port: 3042,
+    port: 3044,
     routes: {
       "/original": () => html(PAGE),
       "/rewritten": async () => html(await rewrite()),
@@ -3526,13 +3861,13 @@ async function start42() {
     fetch: () => Response.json({ error: "Not Found" }, { status: 404 }),
   });
 
-  console.log(`42 html_rewriter → ${server.url}rewritten`);
-  register("42", server);
+  console.log(`44 html_rewriter → ${server.url}rewritten`);
+  register("44", server);
 }
 
 
-// ========== [43] 43_cron.ts ==========
-async function start43() {
+// ========== [45] 45_cron.ts ==========
+async function start45() {
   // Level: Intermediate. Scheduled work with Bun.cron.
   // Bun.cron(expr, fn) runs fn inside this process on a cron schedule
   // ("minute hour day month weekday"). The next run is computed only
@@ -3546,8 +3881,8 @@ async function start43() {
   // Keep the job function separate from the schedule, so it can also be
   // triggered by hand (POST /run-now) and tested.
   // Try:
-  //   curl 'localhost:3043/next?expr=0%209%20*%20*%20MON-FRI&count=3&tz=Asia/Seoul'
-  //   curl localhost:3043/status
+  //   curl 'localhost:3045/next?expr=0%209%20*%20*%20MON-FRI&count=3&tz=Asia/Seoul'
+  //   curl localhost:3045/status
 
   let runs = 0;
   let lastRun: string | null = null;
@@ -3558,7 +3893,7 @@ async function start43() {
   const job = Bun.cron("* * * * *", cleanupJob);
 
   const server = Bun.serve({
-    port: 3043,
+    port: 3045,
     routes: {
       "/status": () => Response.json({ schedule: job.cron, runs, lastRun, nextRun: Bun.cron.parse(job.cron)?.toISOString() ?? null }),
       "/run-now": {
@@ -3590,9 +3925,9 @@ async function start43() {
     error: errorResponse,
   });
 
-  console.log(`43 cron → ${server.url}status`);
+  console.log(`45 cron → ${server.url}status`);
   // Stopping this example must also stop the timer, or it keeps firing.
-  register("43", {
+  register("45", {
     url: server.url,
     stop: async (force?: boolean) => {
       job.stop();
@@ -3602,9 +3937,9 @@ async function start43() {
 }
 
 
-// ========== [44] 44_shell_spawn.ts ==========
-// ★ IMPORTANT — official bun.com sample "Shell" (safety side); scripting features and a pitfall: [51].
-async function start44() {
+// ========== [46] 46_shell_spawn.ts ==========
+// ★ IMPORTANT — official bun.com sample "Shell" (safety side); scripting features and a pitfall: [53].
+async function start46() {
   // Level: Intermediate. Running other programs: Bun Shell ($) and Bun.spawn.
   //   $`cmd ${value}`   Bun's own shell (cross-platform built-ins like
   //                     echo/ls/rm/mkdir). An interpolated value is ONE
@@ -3619,11 +3954,11 @@ async function start44() {
   // Never expose endpoints like these on a public server; they are here
   // on localhost to show the APIs. Only harmless commands are used.
   // Try:
-  //   curl 'localhost:3044/echo?text=;%20rm%20-rf%20/'
-  //   curl localhost:3044/bun-version
+  //   curl 'localhost:3046/echo?text=;%20rm%20-rf%20/'
+  //   curl localhost:3046/bun-version
 
   const server = Bun.serve({
-    port: 3044,
+    port: 3046,
     routes: {
       "/bun-version": async () => {
         const proc = Bun.spawn([process.execPath, "--version"], { stdout: "pipe", stderr: "pipe", env: BUN_CHILD_ENV });
@@ -3648,15 +3983,15 @@ async function start44() {
     error: errorResponse,
   });
 
-  console.log(`44 shell_spawn → ${server.url}`);
-  register("44", server);
+  console.log(`46 shell_spawn → ${server.url}`);
+  register("46", server);
 }
 
 
-// ========== [45] 45_bun_test.ts ==========
+// ========== [47] 47_bun_test.ts ==========
 // ★ IMPORTANT — official bun.com showcase sample "Testing" (and the
 // toolchain command `bun test`).
-async function start45() {
+async function start47() {
   // Level: Intermediate. bun test: a Jest-compatible test runner built in.
   //
   // The official sample: describe/test/expect, test.concurrent, mock() and
@@ -3688,14 +4023,14 @@ async function start45() {
   //   --rerun-each <n> (find flaky tests), --reporter=junit for CI.
   // The file that tests THIS file (the SELF-TEST section at the bottom) is a bun:test suite too.
   // Try:
-  //   curl localhost:3045/run
-  //   curl 'localhost:3045/run?coverage=1'
-  //   curl localhost:3045/run-failing
+  //   curl localhost:3047/run
+  //   curl 'localhost:3047/run?coverage=1'
+  //   curl localhost:3047/run-failing
 
   await ensureToolchainProject();
 
   const server = Bun.serve({
-    port: 3045,
+    port: 3047,
     routes: {
       "/run": async (req, srv) => {
         srv.timeout(req, 60);
@@ -3716,15 +4051,15 @@ async function start45() {
     error: errorResponse,
   });
 
-  console.log(`45 bun_test ★ → ${server.url}run`);
-  register("45", server);
+  console.log(`47 bun_test ★ → ${server.url}run`);
+  register("47", server);
 }
 
 
-// ========== [46] 46_toolchain.ts ==========
-async function start46() {
+// ========== [48] 48_toolchain.ts ==========
+async function start48() {
   // Level: Intermediate. The rest of the bun toolchain: run, install,
-  // build, check, fmt (test is [45]). One binary replaces node + npm +
+  // build, check, fmt (test is [47]). One binary replaces node + npm +
   // tsc + esbuild + prettier + jest. Each endpoint below runs the real
   // command on the throwaway project and shows its output.
   //
@@ -3753,10 +4088,10 @@ async function start46() {
   //   Bundles TS/JSX/CSS/HTML for the browser (--target browser, default)
   //   or for Bun/Node (--target bun|node). --minify, --sourcemap,
   //   --splitting, --outdir. `bun build ./index.html --production` builds
-  //   a whole site; `bun ./index.html` starts a dev server ([76]).
+  //   a whole site; `bun ./index.html` starts a dev server ([80]).
   //   `bun build --compile app.ts` makes a single-file executable that
   //   contains the Bun runtime (tens of MB; cross-compile with --target
-  //   bun-linux-x64 etc.). The same bundler is available as Bun.build() ([76]).
+  //   bun-linux-x64 etc.). The same bundler is available as Bun.build() ([80]).
   //
   // bun check   (replaces tsc --noEmit; new in 1.4.4)
   //   Type-checks using the nearest tsconfig.json and prints the same
@@ -3773,17 +4108,17 @@ async function start46() {
   //   and prints the result; `--staged` formats only git-staged files.
   //
   // Try:
-  //   curl localhost:3046/run
-  //   curl localhost:3046/install
-  //   curl localhost:3046/build
-  //   curl localhost:3046/check
-  //   curl localhost:3046/fmt
+  //   curl localhost:3048/run
+  //   curl localhost:3048/install
+  //   curl localhost:3048/build
+  //   curl localhost:3048/check
+  //   curl localhost:3048/fmt
 
   await ensureToolchainProject();
   const cwd = TOOLCHAIN_DIR;
 
   const server = Bun.serve({
-    port: 3046,
+    port: 3048,
     routes: {
       "/run": async () => {
         const script = await runBun(["run", "hello"], { cwd });
@@ -3833,14 +4168,14 @@ async function start46() {
     error: errorResponse,
   });
 
-  console.log(`46 toolchain → ${server.url}`);
-  register("46", server);
+  console.log(`48 toolchain → ${server.url}`);
+  register("48", server);
 }
 
 
-// ========== [47] 47_websockets.ts ==========
+// ========== [49] 49_websockets.ts ==========
 // ★ IMPORTANT — official bun.com showcase sample "WebSockets".
-async function start47() {
+async function start49() {
   // Level: Intermediate. The reference shape of a Bun WebSocket server.
   //
   // The official sample: fetch() calls server.upgrade(req, { data: { room:
@@ -3848,8 +4183,8 @@ async function start47() {
   // subscribes to ws.data.room; message() does ws.publish(room, message).
   // This version keeps that shape and adds the parts a real one needs.
   // Deeper topics live elsewhere, so they are not repeated here:
-  //   [20] echo basics  [28] rooms page  [62] backpressure/cork
-  //   [67] ws.publish vs server.publish  [69] RPC protocol + rate limit
+  //   [21] echo basics  [29] rooms page  [66] backpressure/cork
+  //   [71] ws.publish vs server.publish  [73] RPC protocol + rate limit
   //
   // What is new here
   //   - `websocket: { data: {} as Chat }` types ws.data (the 1.3+ style:
@@ -3869,10 +4204,10 @@ async function start47() {
   //     Browsers cannot set headers on a WebSocket; Bun can, which is how a
   //     backend service authenticates to another one (GET /client-demo).
   // Try:
-  //   open http://localhost:3047/ in two tabs
-  //   curl localhost:3047/client-demo
-  //   curl localhost:3047/rooms/lobby
-  //   curl -X POST localhost:3047/rooms/lobby/broadcast -d 'deploy finished'
+  //   open http://localhost:3049/ in two tabs
+  //   curl localhost:3049/client-demo
+  //   curl localhost:3049/rooms/lobby
+  //   curl -X POST localhost:3049/rooms/lobby/broadcast -d 'deploy finished'
 
   type Chat = { room: string; name: string; protocol: string | null };
   const ROOM = /^[a-z0-9-]{1,32}$/;
@@ -3893,7 +4228,7 @@ document.getElementById("f").onsubmit = (e) => { e.preventDefault(); const i = d
 </script>`;
 
   const server: Server<Chat> = Bun.serve({
-    port: 3047,
+    port: 3049,
     routes: {
       "/": new Response(page, { headers: { "Content-Type": "text/html; charset=utf-8" } }),
       "/rooms/:room": (req) => {
@@ -3915,7 +4250,7 @@ document.getElementById("f").onsubmit = (e) => { e.preventDefault(); const i = d
         const room = `demo-${crypto.randomUUID().slice(0, 8)}`;
         const open = (name: string) =>
           new Promise<WebSocket>((resolve, reject) => {
-            const ws = new WebSocket(`ws://127.0.0.1:3047/ws?room=${room}&name=${name}`, {
+            const ws = new WebSocket(`ws://127.0.0.1:3049/ws?room=${room}&name=${name}`, {
               protocols: ["chat.v1"],
               headers: { "User-Agent": "bun-service-client" }, // Bun-only option
             });
@@ -3982,14 +4317,14 @@ document.getElementById("f").onsubmit = (e) => { e.preventDefault(); const i = d
     error: errorResponse,
   });
 
-  console.log(`47 websockets ★ → ${server.url}`);
-  register("47", server);
+  console.log(`49 websockets ★ → ${server.url}`);
+  register("49", server);
 }
 
 
-// ========== [48] 48_bun_sql.ts ==========
+// ========== [50] 50_bun_sql.ts ==========
 // ★ IMPORTANT — official bun.com showcase sample "PostgreSQL".
-async function start48() {
+async function start50() {
   // Level: Intermediate. Bun.sql: one tagged-template API for PostgreSQL,
   // MySQL and SQLite, with no driver package.
   //
@@ -4026,12 +4361,12 @@ async function start48() {
   // Errors: SQLite throws SQLiteError (code "SQLITE_CONSTRAINT_UNIQUE");
   // Postgres throws PostgresError (errno "23505" = unique violation).
   // Try:
-  //   curl 'localhost:3048/users?active=true&limit=10'
-  //   curl 'localhost:3048/users/by-ids?ids=1,3'
-  //   curl 'localhost:3048/users/sorted?by=name&dir=desc'
-  //   curl localhost:3048/users -H 'Content-Type: application/json' -d '{"name":"Eve","email":"eve@example.com","role":"admin"}'
-  //   curl -X POST localhost:3048/tx-demo
-  //   curl localhost:3048/pipelining
+  //   curl 'localhost:3050/users?active=true&limit=10'
+  //   curl 'localhost:3050/users/by-ids?ids=1,3'
+  //   curl 'localhost:3050/users/sorted?by=name&dir=desc'
+  //   curl localhost:3050/users -H 'Content-Type: application/json' -d '{"name":"Eve","email":"eve@example.com","role":"admin"}'
+  //   curl -X POST localhost:3050/tx-demo
+  //   curl localhost:3050/pipelining
 
   const pgUrl = Bun.env.BUN_DEMO_PG_URL;
   const sql = pgUrl ? new SQL(pgUrl) : new SQL(":memory:");
@@ -4073,7 +4408,7 @@ async function start48() {
   }
 
   const server = Bun.serve({
-    port: 3048,
+    port: 3050,
     routes: {
       "/": () => Response.json({ adapter, table: "bun_demo_users" }),
       "/users": {
@@ -4164,8 +4499,8 @@ async function start48() {
     error: errorResponse,
   });
 
-  console.log(`48 bun_sql ★ → ${server.url}  (adapter: ${adapter})`);
-  register("48", {
+  console.log(`50 bun_sql ★ → ${server.url}  (adapter: ${adapter})`);
+  register("50", {
     url: server.url,
     stop: async (force?: boolean) => {
       await server.stop(force);
@@ -4175,9 +4510,9 @@ async function start48() {
 }
 
 
-// ========== [49] 49_bun_redis.ts ==========
+// ========== [51] 51_bun_redis.ts ==========
 // ★ IMPORTANT — official bun.com showcase sample "Redis".
-async function start49() {
+async function start51() {
   // Level: Intermediate. Bun.redis: a built-in Redis client (no ioredis).
   //
   // The official sample: redis.set/get, redis.hset("user:1", {...}),
@@ -4208,10 +4543,10 @@ async function start49() {
   // would to Redis. It is a teaching toy (no persistence, no eviction, 10
   // commands), not a Redis replacement.
   // Try:
-  //   curl localhost:3049/hits
-  //   curl 'localhost:3049/square?n=12'     # twice: cached:false then true
-  //   curl -X POST 'localhost:3049/profile?name=Alice&plan=pro' && curl localhost:3049/profile
-  //   curl -X POST 'localhost:3049/publish?msg=deployed' && curl localhost:3049/events
+  //   curl localhost:3051/hits
+  //   curl 'localhost:3051/square?n=12'     # twice: cached:false then true
+  //   curl -X POST 'localhost:3051/profile?name=Alice&plan=pro' && curl localhost:3051/profile
+  //   curl -X POST 'localhost:3051/publish?msg=deployed' && curl localhost:3051/events
 
   const external = Bun.env.BUN_DEMO_REDIS_URL;
   const toy = external ? null : startToyRedis();
@@ -4226,7 +4561,7 @@ async function start49() {
   });
 
   const server = Bun.serve({
-    port: 3049,
+    port: 3051,
     routes: {
       "/": () => Response.json({ backend: external ? "external redis (BUN_DEMO_REDIS_URL)" : "in-process toy RESP3 server" }),
       "/hits": async () => Response.json({ hits: await client.incr("bun-demo:hits") }),
@@ -4270,8 +4605,8 @@ async function start49() {
     error: errorResponse,
   });
 
-  console.log(`49 bun_redis ★ → ${server.url}  (${external ? "external" : "toy server"})`);
-  register("49", {
+  console.log(`51 bun_redis ★ → ${server.url}  (${external ? "external" : "toy server"})`);
+  register("51", {
     url: server.url,
     stop: async (force?: boolean) => {
       await server.stop(force);
@@ -4283,7 +4618,7 @@ async function start49() {
 }
 
 /**
- * A toy server for [49] that speaks RESP3, the Redis wire protocol.
+ * A toy server for [51] that speaks RESP3, the Redis wire protocol.
  * RESP is simple text framing:
  *   request   *3\r\n$3\r\nSET\r\n$1\r\nk\r\n$1\r\nv\r\n   (array of bulk strings)
  *   replies   +OK  :42 (integer)  $5\r\nhello (bulk)  _ (null)
@@ -4291,7 +4626,7 @@ async function start49() {
  * Bun's client starts with HELLO 3 to switch to RESP3, which is why HELLO
  * must answer with a map. Data can arrive split or several commands at
  * once (pipelining), so bytes are buffered and parsed in a loop: a TCP
- * stream has no message boundaries ([73] shows the same with Bun.listen).
+ * stream has no message boundaries ([77] shows the same with Bun.listen).
  */
 function startToyRedis() {
   type Conn = { buf: Buffer; channels: Set<string> };
@@ -4429,9 +4764,9 @@ function startToyRedis() {
 }
 
 
-// ========== [50] 50_bun_s3.ts ==========
+// ========== [52] 52_bun_s3.ts ==========
 // ★ IMPORTANT — official bun.com showcase sample "S3".
-async function start50() {
+async function start52() {
   // Level: Intermediate. Bun.s3: read, write and presign objects on any
   // S3-compatible store (AWS S3, Cloudflare R2, MinIO, DigitalOcean ...).
   //
@@ -4460,9 +4795,9 @@ async function start50() {
   //   PUT /objects/<key>  and  GET /objects/<key>     -> server-side copy
   //                       (needs BUN_DEMO_S3=1 and a real bucket)
   // Try:
-  //   curl 'localhost:3050/presign?key=uploads/avatar.png&method=PUT&type=image/png'
-  //   curl -i localhost:3050/download/uploads/avatar.png
-  //   curl -X PUT --data-binary @some.png localhost:3050/objects/uploads/x.png   # 503 unless enabled
+  //   curl 'localhost:3052/presign?key=uploads/avatar.png&method=PUT&type=image/png'
+  //   curl -i localhost:3052/download/uploads/avatar.png
+  //   curl -X PUT --data-binary @some.png localhost:3052/objects/uploads/x.png   # 503 unless enabled
 
   const live = Bun.env.BUN_DEMO_S3 === "1";
   // With no bucket configured, a client with dummy keys still presigns
@@ -4480,7 +4815,7 @@ async function start50() {
   };
 
   const server = Bun.serve({
-    port: 3050,
+    port: 3052,
     routes: {
       "/": () => Response.json({ live }),
       "/presign": (req) => {
@@ -4518,16 +4853,16 @@ async function start50() {
     error: errorResponse,
   });
 
-  console.log(`50 bun_s3 ★ → ${server.url}  (${live ? "live bucket" : "presign only"})`);
-  register("50", server);
+  console.log(`52 bun_s3 ★ → ${server.url}  (${live ? "live bucket" : "presign only"})`);
+  register("52", server);
 }
 
 
-// ========== [51] 51_bun_shell.ts ==========
+// ========== [53] 53_bun_shell.ts ==========
 // ★ IMPORTANT — official bun.com showcase sample "Shell".
-async function start51() {
+async function start53() {
   // Level: Intermediate. Bun.$ as a scripting language: the features a
-  // build or deploy script uses. [44] covers the safety side (interpolation
+  // build or deploy script uses. [46] covers the safety side (interpolation
   // cannot inject, .nothrow()) and Bun.spawn; this one is about scripting.
   //
   // The official sample:
@@ -4559,12 +4894,12 @@ async function start51() {
   // shell and behave the same on every OS; gzip and git are real programs
   // from PATH (the gzip step is skipped if gzip is missing).
   // Try:
-  //   curl localhost:3051/script
+  //   curl localhost:3053/script
 
   const WORK = `${tmpdir()}/bun-all-ts-shell`;
 
   const server = Bun.serve({
-    port: 3051,
+    port: 3053,
     routes: {
       "/script": async (req, srv) => {
         srv.timeout(req, 30);
@@ -4619,19 +4954,19 @@ async function start51() {
     error: errorResponse,
   });
 
-  console.log(`51 bun_shell ★ → ${server.url}script`);
-  register("51", server);
+  console.log(`53 bun_shell ★ → ${server.url}script`);
+  register("53", server);
 }
 
 
-// ========== [52] 52_fetch_extras.ts ==========
-async function start52() {
-  // Level: Intermediate. fetch() options that only Bun has. [56] uses fetch
-  // as a reverse proxy and [74] covers timeouts, retries and streaming; this
+// ========== [54] 54_fetch_extras.ts ==========
+async function start54() {
+  // Level: Intermediate. fetch() options that only Bun has. [59] uses fetch
+  // as a reverse proxy and [78] covers timeouts, retries and streaming; this
   // one shows the transport options from bun.com's "HTTP/2, proxies, unix
   // sockets" line:
   //   unix: path        talk HTTP over a unix domain socket instead of TCP
-  //                     (Docker's API, a local daemon, or [55] here). The
+  //                     (Docker's API, a local daemon, or [58] here). The
   //                     host in the URL is then only used for the Host header.
   //   proxy: url        send the request through an HTTP proxy. For http://
   //                     targets the proxy receives the ABSOLUTE URL in the
@@ -4649,7 +4984,7 @@ async function start52() {
   // A tiny forward proxy is started on a random port to make the proxy step
   // observable: it records the request line it received.
   // Try:
-  //   curl localhost:3052/report
+  //   curl localhost:3054/report
 
   const proxied: string[] = [];
   const proxy = Bun.serve({
@@ -4663,7 +4998,7 @@ async function start52() {
   });
 
   const server = Bun.serve({
-    port: 3052,
+    port: 3054,
     routes: {
       "/report": async () => {
         const report: Record<string, unknown> = {};
@@ -4685,11 +5020,11 @@ async function start52() {
           return { status: r.status, proxySaw: [...proxied] };
         });
         await attempt("tlsWithCa", async () => {
-          const r = await fetch("https://localhost:3059/", { tls: { ca: DEV_TLS_CERT } });
+          const r = await fetch("https://localhost:3062/", { tls: { ca: DEV_TLS_CERT } });
           return { status: r.status, protocol: ((await r.json()) as { protocol: string }).protocol };
         });
         await attempt("tlsWithoutCa", async () => {
-          const r = await fetch("https://localhost:3059/");
+          const r = await fetch("https://localhost:3062/");
           return { status: r.status };
         });
         await attempt("decompressFalse", async () => {
@@ -4704,8 +5039,8 @@ async function start52() {
     error: errorResponse,
   });
 
-  console.log(`52 fetch_extras → ${server.url}report`);
-  register("52", {
+  console.log(`54 fetch_extras → ${server.url}report`);
+  register("54", {
     url: server.url,
     stop: async (force?: boolean) => {
       await server.stop(force);
@@ -4715,8 +5050,8 @@ async function start52() {
 }
 
 
-// ========== [53] 53_bun_secrets.ts ==========
-async function start53() {
+// ========== [55] 55_bun_secrets.ts ==========
+async function start55() {
   // Level: Intermediate. Bun.secrets: store credentials in the OS keychain
   // instead of plain-text dotfiles.
   //   macOS -> Keychain, Linux -> libsecret (GNOME Keyring / KWallet),
@@ -4737,9 +5072,9 @@ async function start53() {
   // whether it exists and its length.
   // Try:
   //   BUN_DEMO_SECRETS=1 bun allblue.ts
-  //   curl -X PUT localhost:3053/secret -H 'Content-Type: application/json' -d '{"value":"ghp_example"}'
-  //   curl localhost:3053/secret
-  //   curl -X DELETE localhost:3053/secret
+  //   curl -X PUT localhost:3055/secret -H 'Content-Type: application/json' -d '{"value":"ghp_example"}'
+  //   curl localhost:3055/secret
+  //   curl -X DELETE localhost:3055/secret
 
   const enabled = Bun.env.BUN_DEMO_SECRETS === "1";
   const ID = { service: "bun-all-ts-demo", name: "demo-token" };
@@ -4748,7 +5083,7 @@ async function start53() {
   };
 
   const server = Bun.serve({
-    port: 3053,
+    port: 3055,
     routes: {
       "/": () => Response.json({ enabled, service: ID.service, name: ID.name }),
       "/secret": {
@@ -4774,31 +5109,133 @@ async function start53() {
     error: errorResponse,
   });
 
-  console.log(`53 bun_secrets → ${server.url}  (${enabled ? "keychain enabled" : "disabled"})`);
-  register("53", server);
+  console.log(`55 bun_secrets → ${server.url}  (${enabled ? "keychain enabled" : "disabled"})`);
+  register("55", server);
+}
+
+
+// ========== [56] 56_rsa_signatures.ts ==========
+// NEW in Bun 1.4.5 edition.
+async function start56() {
+  // Level: Intermediate. Digital signatures with node:crypto, including the
+  // hashes Bun 1.4.5 fixed.
+  // A signature proves who produced some bytes and that nobody changed them:
+  // sign with the PRIVATE key, anyone checks it with the PUBLIC key. An HMAC
+  // (the HS256 JWT in [67]) needs the same secret on both sides; a signature
+  // does not, so the public key can be published (GET /public-key).
+  // node:crypto (Node's API, built into Bun):
+  //   generateKeyPairSync("rsa", { modulusLength: 2048 })  -> { publicKey, privateKey }
+  //   sign(alg, data, privateKey)           -> Buffer, the signature
+  //   verify(alg, data, publicKey, sig)     -> boolean
+  //   sign(alg, data, { key, padding: constants.RSA_PKCS1_PSS_PADDING, saltLength })
+  //                                         RSA-PSS instead of PKCS#1 v1.5
+  // `alg` is the hash that is signed. sha256 is the usual choice. Before Bun
+  // 1.4.5, an RSA key with sha3-256/384/512, sha512-224, sha512-256 or
+  // ripemd160 threw ERR_OSSL_RSA_UNKNOWN_ALGORITHM_TYPE; 1.4.5 accepts them
+  // as Node.js does. You meet them when another system dictates the hash:
+  // SHA-3 in newer standards, RIPEMD-160 in older PGP-era formats.
+  // GET /algorithms signs and verifies once with every hash and shows
+  // which ones this Bun supports.
+  // PKCS#1 v1.5 signatures are deterministic (same input -> same bytes).
+  // PSS mixes in a random salt: two signatures differ, both verify. Prefer
+  // PSS for new designs, PKCS#1 v1.5 when a format requires it (JWT RS256).
+  // The key pair is made at start-up and lives only in memory. A real app
+  // loads its private key from a secret store ([55] Bun.secrets, or the
+  // environment), never from git.
+  // Try:
+  //   curl localhost:3056/algorithms
+  //   curl localhost:3056/public-key
+  //   curl -X POST 'localhost:3056/sign?alg=sha3-256' --data-binary 'hello'
+  //   curl -X POST 'localhost:3056/sign?alg=sha3-256&pss=1' --data-binary 'hello'
+  //   curl -X POST localhost:3056/verify -H 'Content-Type: application/json' \
+  //     -d '{"alg":"sha3-256","data":"hello","signature":"<signature from /sign>"}'
+
+  const nodeCrypto = await import("node:crypto");
+  const { privateKey, publicKey } = nodeCrypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const ALGS = ["sha256", "sha384", "sha512", "sha512-224", "sha512-256", "sha3-256", "sha3-384", "sha3-512", "ripemd160"];
+  const FIXED_IN_145 = new Set(["sha512-224", "sha512-256", "sha3-256", "sha3-384", "sha3-512", "ripemd160"]);
+  const MAX_BYTES = 64 * 1024;
+
+  const checkAlg = (value: unknown): string => {
+    if (typeof value !== "string" || !ALGS.includes(value)) throw new HttpError(422, `alg must be one of: ${ALGS.join(", ")}`);
+    return value;
+  };
+  // The key argument decides the padding: a bare KeyObject means PKCS#1 v1.5.
+  const withPadding = <K>(key: K, pss: boolean) =>
+    pss ? { key, padding: nodeCrypto.constants.RSA_PKCS1_PSS_PADDING, saltLength: nodeCrypto.constants.RSA_PSS_SALTLEN_DIGEST } : key;
+
+  const server = Bun.serve({
+    port: 3056,
+    routes: {
+      "/algorithms": () => {
+        const probe = Buffer.from("probe");
+        const results = ALGS.map((alg) => {
+          try {
+            const sig = nodeCrypto.sign(alg, probe, privateKey);
+            return { alg, ok: nodeCrypto.verify(alg, probe, publicKey, sig), fixedIn145: FIXED_IN_145.has(alg) };
+          } catch (err) {
+            // On Bun 1.4.4 and older the FIXED_IN_145 hashes end up here.
+            return { alg, ok: false, fixedIn145: FIXED_IN_145.has(alg), error: (err as { code?: string }).code ?? (err as Error).message };
+          }
+        });
+        return Response.json({ bun: Bun.version, keyBits: 2048, results });
+      },
+      "/public-key": () =>
+        new Response(publicKey.export({ type: "spki", format: "pem" }), {
+          headers: { "Content-Type": "application/x-pem-file" },
+        }),
+      "/sign": {
+        POST: async (req) => {
+          const alg = checkAlg(qp(req, "alg") ?? "sha256");
+          const pss = qp(req, "pss") === "1";
+          if (Number(req.headers.get("content-length")) > MAX_BYTES) throw new HttpError(413, `body is larger than ${MAX_BYTES} bytes`);
+          const data = new Uint8Array(await req.arrayBuffer());
+          if (data.byteLength > MAX_BYTES) throw new HttpError(413, `body is larger than ${MAX_BYTES} bytes`);
+          const signature = nodeCrypto.sign(alg, data, withPadding(privateKey, pss));
+          return Response.json({ alg, padding: pss ? "pss" : "pkcs1", bytes: data.byteLength, signature: signature.toString("base64url") });
+        },
+      },
+      "/verify": {
+        POST: async (req) => {
+          const body = (await readJsonCapped(req, MAX_BYTES * 2)) as { alg?: unknown; data?: unknown; signature?: unknown; pss?: unknown };
+          const alg = checkAlg(body.alg);
+          if (typeof body.data !== "string" || typeof body.signature !== "string") throw new HttpError(422, "data and signature (base64url) must be strings");
+          const signature = Buffer.from(body.signature, "base64url");
+          // verify() returns false for a wrong signature; it does not throw.
+          const valid = nodeCrypto.verify(alg, Buffer.from(body.data), withPadding(publicKey, body.pss === true), signature);
+          return Response.json({ alg, valid });
+        },
+      },
+    },
+    fetch: () => Response.json({ error: "Not Found" }, { status: 404 }),
+    error: errorResponse,
+  });
+
+  console.log(`56 rsa_signatures → ${server.url}algorithms`);
+  register("56", server);
 }
 
 
 // ############################################################################
 // ############################################################################
 //
-//   ADVANCED  [54]-[77]  (24 examples)
+//   ADVANCED  [57]-[81]  (25 examples)
 //
 // ############################################################################
 // ############################################################################
 
-// ========== [54] 54_reload.ts ==========
+// ========== [57] 57_reload.ts ==========
 // Level: Advanced. Hot-swapping handlers with server.reload().
 // reload() replaces routes/fetch/error while keeping the port and the open
 // connections. Pass the complete set of handlers: it is a replacement, not
 // a merge. Values on globalThis survive `bun --hot` module re-evaluation.
-async function start54() {
-  // 54. server.reload — 포트 유지한 채 핸들러 교체
-  // 실행: bun 54_reload.ts
+async function start57() {
+  // 57. server.reload — 포트 유지한 채 핸들러 교체
+  // 실행: bun 57_reload.ts
   // 확인:
-  //   curl http://localhost:3054/api/version   # v1
+  //   curl http://localhost:3057/api/version   # v1
   //   # 3초 후 자동 reload
-  //   curl http://localhost:3054/api/version   # v2
+  //   curl http://localhost:3057/api/version   # v2
   //
   // bun --hot 과 병행 시: globalThis 상태는 프로세스에 남음
 
@@ -4806,7 +5243,7 @@ async function start54() {
   g.__reloadCount ??= 0;
 
   const server = Bun.serve({
-    port: 3054,
+    port: 3057,
     routes: {
       "/api/version": () =>
         Response.json({
@@ -4821,7 +5258,7 @@ async function start54() {
     },
   });
 
-  console.log(`54 reload → ${server.url} (v1)`);
+  console.log(`57 reload → ${server.url} (v1)`);
 
   setTimeout(() => {
     g.__reloadCount = (g.__reloadCount ?? 0) + 1;
@@ -4841,20 +5278,20 @@ async function start54() {
     });
     console.log("→ reloaded to v2 (port unchanged)");
   }, 3000);
-    push("54", server);
+    push("57", server);
 
 }
 
 
-// ========== [55] 55_unix.ts ==========
+// ========== [58] 58_unix.ts ==========
 // Level: Advanced. Unix domain socket.
 // No TCP port: clients connect through a file. Faster than loopback TCP
 // and protected by file permissions; typical behind nginx on one machine.
 // A stale socket file from a crash makes listen fail, hence the unlink
 // first. Bun's fetch can call it with fetch(url, { unix: sock }).
-async function start55() {
-  // 55. Unix domain socket — 리버스 프록시 뒤 로컬 통신
-  // 실행: bun --hot 55_unix.ts
+async function start58() {
+  // 58. Unix domain socket — 리버스 프록시 뒤 로컬 통신
+  // 실행: bun --hot 58_unix.ts
   // 확인:
   //   curl --unix-socket /tmp/allblue.sock http://localhost/
   //   (macOS/Linux curl 지원)
@@ -4884,15 +5321,15 @@ async function start55() {
     },
   });
 
-  console.log(`55 unix → unix:${sock}`);
+  console.log(`58 unix → unix:${sock}`);
   // server.url 은 unix 모드에서 의미가 다를 수 있음
   void server;
-    push("55", server);
+    push("58", server);
 
 }
 
 
-// ========== [56] 56_proxy.ts ==========
+// ========== [59] 59_proxy.ts ==========
 // Level: Advanced. Reverse proxy with fetch().
 // Only the path and query are forwarded and the upstream host is fixed, so
 // a client cannot make the server call arbitrary hosts (no SSRF). Request
@@ -4900,12 +5337,12 @@ async function start55() {
 // Verified on 1.4.4: fetch() decompresses gzip and reports the decompressed
 // Content-Length, so copying that header is safe.
 // Needs internet access for /proxy/*; /local works offline.
-async function start56() {
-  // 56. 리버스 프록시 — fetch 결과를 그대로 전달
-  // 실행: bun --hot 56_proxy.ts
+async function start59() {
+  // 59. 리버스 프록시 — fetch 결과를 그대로 전달
+  // 실행: bun --hot 59_proxy.ts
   // 확인:
-  //   curl -i http://localhost:3056/proxy/get
-  //   curl -i http://localhost:3056/proxy/status/418
+  //   curl -i http://localhost:3059/proxy/get
+  //   curl -i http://localhost:3059/proxy/status/418
   //
   // 업스트림: https://httpbin.org  (네트워크 필요)
   // 오프라인 테스트용 /local 도 제공
@@ -4913,7 +5350,7 @@ async function start56() {
   const UPSTREAM = "https://httpbin.org";
 
   const server = Bun.serve({
-    port: 3056,
+    port: 3059,
     routes: {
       "/": () =>
         new Response(
@@ -4970,26 +5407,26 @@ async function start56() {
     },
   });
 
-  console.log(`56 proxy → ${server.url}`);
-    push("56", server);
+  console.log(`59 proxy → ${server.url}`);
+    push("59", server);
 
 }
 
 
-// ========== [57] 57_timeout.ts ==========
+// ========== [60] 60_timeout.ts ==========
 // Level: Advanced. idleTimeout and server.timeout().
-async function start57() {
-  // 57. idleTimeout · server.timeout — 요청별 타임아웃 제어
-  // 실행: bun --hot 57_timeout.ts
+async function start60() {
+  // 60. idleTimeout · server.timeout — 요청별 타임아웃 제어
+  // 실행: bun --hot 60_timeout.ts
   // 확인:
-  //   curl -m 5 http://localhost:3057/fast          # 즉시
-  //   curl -m 5 http://localhost:3057/slow-ok       # timeout(req,0) → 완료
-  //   curl -m 5 http://localhost:3057/slow-default  # 기본 idle 에 걸릴 수 있음
+  //   curl -m 5 http://localhost:3060/fast          # 즉시
+  //   curl -m 5 http://localhost:3060/slow-ok       # timeout(req,0) → 완료
+  //   curl -m 5 http://localhost:3060/slow-default  # 기본 idle 에 걸릴 수 있음
   //
   // 서버 기본 idleTimeout 을 2초로 낮춰 차이를 보기 쉽게 함
 
   const server = Bun.serve({
-    port: 3057,
+    port: 3060,
     idleTimeout: 2, // 초 (HTTP 유휴). 기본은 10, 최대 255, 0=비활성
     routes: {
       "/": () =>
@@ -5027,30 +5464,30 @@ async function start57() {
     },
   });
 
-  console.log(`57 timeout → ${server.url} (idleTimeout=2s)`);
-    push("57", server);
+  console.log(`60 timeout → ${server.url} (idleTimeout=2s)`);
+    push("60", server);
 
 }
 
 
-// ========== [58] 58_export_default.ts ==========
+// ========== [61] 61_export_default.ts ==========
 // Level: Advanced. Route priority.
 // Bun matches: exact path > :param > /prefix/* > /*, independent of the
 // order in the object. With a "/*" route, fetch() is effectively
 // unreachable for normal requests.
-async function start58() {
-  // 58. export default · 와일드카드 라우트 · 우선순위
-  // 실행: bun 58_export_default.ts
-  //   (또는: bun --hot 58_export_default.ts)
+async function start61() {
+  // 61. export default · 와일드카드 라우트 · 우선순위
+  // 실행: bun 61_export_default.ts
+  //   (또는: bun --hot 61_export_default.ts)
   // 확인:
-  //   curl http://localhost:3058/
-  //   curl http://localhost:3058/api/users/me     # exact 우선
-  //   curl http://localhost:3058/api/users/42     # :id
-  //   curl http://localhost:3058/api/other        # /api/*
-  //   curl http://localhost:3058/anything         # /*
+  //   curl http://localhost:3061/
+  //   curl http://localhost:3061/api/users/me     # exact 우선
+  //   curl http://localhost:3061/api/users/42     # :id
+  //   curl http://localhost:3061/api/other        # /api/*
+  //   curl http://localhost:3061/anything         # /*
 
   const server = Bun.serve({
-    port: 3058,
+    port: 3061,
     routes: {
       "/": () =>
         Response.json({
@@ -5083,23 +5520,23 @@ async function start58() {
     },
   } satisfies Serve.Options<undefined>);
 
-  console.log(`58 export_default → ${server.url}`);
-    push("58", server);
+  console.log(`61 export_default → ${server.url}`);
+    push("61", server);
 
 }
 
 
-// ========== [59] 59_tls.ts ==========
+// ========== [62] 62_tls.ts ==========
 // Level: Advanced. HTTPS.
 // tls.key / tls.cert accept a BunFile, a string or a Buffer. The private key
 // must never be committed to git. Since 1.4.4, client certificates (mTLS)
 // are requested only with requestCert: true; `ca` alone no longer does it.
-async function start59() {
-  // 59. TLS / HTTPS — 자체 서명 인증서
-  // 실행: bun --hot 59_tls.ts
+async function start62() {
+  // 62. TLS / HTTPS — 자체 서명 인증서
+  // 실행: bun --hot 62_tls.ts
   // 확인:
-  //   curl -k https://localhost:3059/
-  //   브라우저: https://localhost:3059/  (경고 무시 — 개발용 인증서)
+  //   curl -k https://localhost:3062/
+  //   브라우저: https://localhost:3062/  (경고 무시 — 개발용 인증서)
   //
   // 인증서: ./_certs/{key,cert}.pem
   // 재발급: openssl req -x509 -newkey rsa:2048 -nodes \
@@ -5110,7 +5547,7 @@ async function start59() {
   await ensureDevCert(CERT_DIR); // UPDATED: creates _certs/*.pem if missing
 
   const server = Bun.serve({
-    port: 3059,
+    port: 3062,
     tls: {
       // 경로 문자열이 아니라 BunFile / 내용
       key: Bun.file(`${CERT_DIR}/key.pem`),
@@ -5121,7 +5558,7 @@ async function start59() {
         Response.json({
           ok: true,
           protocol: "https",
-          tip: "curl -k https://localhost:3059/",
+          tip: "curl -k https://localhost:3062/",
         }),
       "/whoami": (req, srv) =>
         Response.json({
@@ -5134,22 +5571,174 @@ async function start59() {
     },
   });
 
-  console.log(`59 tls → ${server.url}  (curl -k ${server.url})`);
-    push("59", server);
+  console.log(`62 tls → ${server.url}  (curl -k ${server.url})`);
+    push("62", server);
 
 }
 
 
-// ========== [60] 60_http3.ts ==========
+// ========== [63] 63_tls_cert_errors.ts ==========
+// NEW in Bun 1.4.5 edition.
+async function start63() {
+  // Level: Advanced. Why did the TLS handshake fail?
+  // When fetch() or node:tls rejects a server's certificate, the error has
+  // a `code` naming the reason. Each reason has a different fix, so log the
+  // code (never just "TLS failed"), and never "fix" it with
+  // rejectUnauthorized: false:
+  //   CERT_HAS_EXPIRED               the cert's notAfter date has passed.
+  //                                  Fix: renew it (or fix the clock).
+  //   DEPTH_ZERO_SELF_SIGNED_CERT    self-signed and not trusted by this client.
+  //                                  Fix: trust that cert explicitly with `ca`.
+  //   UNABLE_TO_VERIFY_LEAF_SIGNATURE, UNABLE_TO_GET_ISSUER_CERT_LOCALLY
+  //                                  the issuing CA is unknown, or the server
+  //                                  does not send its intermediate certs.
+  //   ERR_TLS_CERT_ALTNAME_INVALID   a valid cert, but for another host name.
+  // What Bun 1.4.5 (a security release) changed here:
+  //   - An EXPIRED cert from an UNKNOWN issuer now reports CERT_HAS_EXPIRED,
+  //     as Node.js does, so the real problem is no longer hidden behind a
+  //     "not trusted" code. Trusting the cert with `ca` does not help: the
+  //     date is checked anyway (cases 1 and 2 below).
+  //   - Custom root certificates passed with `ca` are validated more
+  //     strictly, and some legacy ones are now rejected (Bun's bundled
+  //     roots are not affected). If a private CA stopped working after the
+  //     upgrade, inspect it with `openssl x509 -text -noout -in ca.pem` and
+  //     re-issue it.
+  //   - allowPartialTrustChain together with crl now needs the chain to end
+  //     at a self-issued certificate, as in Node.js.
+  //   - BoringSSL, lsquic (HTTP/3, [64]) and c-ares (DNS) were updated.
+  // This example starts two throwaway HTTPS servers on random ports, bound
+  // to 127.0.0.1: one with an EXPIRED certificate (embedded below; it was
+  // valid for one day in January 2020) and one with the dev certificate of
+  // [62]. GET /check connects to them six ways and reports what each client
+  // saw. With rejectUnauthorized: false the connection succeeds, and
+  // node:tls still says WHY it is untrusted in socket.authorizationError:
+  // fine for a diagnostic tool like this one, wrong for anything else.
+  // GET /certs reads both certificates with node:crypto's X509Certificate.
+  // Try:
+  //   curl localhost:3063/check
+  //   curl localhost:3063/certs
+
+  // An EC P-256 pair made for this example with
+  //   openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes \
+  //     -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
+  //     -not_before 20200101000000Z -not_after 20200102000000Z
+  // Its private key is public on purpose: it is expired and useless.
+  const EXPIRED_TLS_KEY = `-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgpUAsvTHKXc10hQAT
+URKC6yV8Z7P1Ifkqd6vjLBNKpsqhRANCAAQAd138CMVccD5zjz/uRWHa106tHXjW
+3xGH/IQPq7W8b2+HJw8z/nyRTgMqsoJTH6Mmwm88Ap/RV7BX3TJCbCFK
+-----END PRIVATE KEY-----
+`;
+  const EXPIRED_TLS_CERT = `-----BEGIN CERTIFICATE-----
+MIIBmTCCAT+gAwIBAgIUO/N5k2nDjHzf8l+zit4DqapH0FswCgYIKoZIzj0EAwIw
+FDESMBAGA1UEAwwJbG9jYWxob3N0MB4XDTIwMDEwMTAwMDAwMFoXDTIwMDEwMjAw
+MDAwMFowFDESMBAGA1UEAwwJbG9jYWxob3N0MFkwEwYHKoZIzj0CAQYIKoZIzj0D
+AQcDQgAEAHdd/AjFXHA+c48/7kVh2tdOrR141t8Rh/yED6u1vG9vhycPM/58kU4D
+KrKCUx+jJsJvPAKf0VewV90yQmwhSqNvMG0wHQYDVR0OBBYEFFV1rVp3Ufv3s8go
+tliWO/lAamTVMB8GA1UdIwQYMBaAFFV1rVp3Ufv3s8gotliWO/lAamTVMA8GA1Ud
+EwEB/wQFMAMBAf8wGgYDVR0RBBMwEYIJbG9jYWxob3N0hwR/AAABMAoGCCqGSM49
+BAMCA0gAMEUCIDV1o0TmCKxthqUrQfSnK0Lg6lL/VjJSmewwyScsilfRAiEA3YRW
+VoVcUXp47HnEJGm2im8gSkycKw20N3PXZ+t3mhA=
+-----END CERTIFICATE-----
+`;
+
+  const tls = await import("node:tls");
+  const { X509Certificate } = await import("node:crypto");
+
+  const hello = (text: string) => () => new Response(text);
+  const expired = Bun.serve({ port: 0, hostname: "127.0.0.1", tls: { key: EXPIRED_TLS_KEY, cert: EXPIRED_TLS_CERT }, fetch: hello("expired cert") });
+  const selfSigned = Bun.serve({ port: 0, hostname: "127.0.0.1", tls: { key: DEV_TLS_KEY, cert: DEV_TLS_CERT }, fetch: hello("self-signed cert") });
+
+  type Outcome =
+    | { ok: true; status?: number; authorized?: boolean; authorizationError?: string | null }
+    | { ok: false; code: string; message: string };
+  const failure = (err: unknown): Outcome => {
+    const e = err as { code?: string; name?: string; message?: string };
+    return { ok: false, code: e.code ?? e.name ?? "Error", message: e.message ?? String(err) };
+  };
+  // authorizationError is an Error in Node.js and may be a string elsewhere.
+  const reason = (x: unknown) => (x == null ? null : typeof x === "string" ? x : ((x as { code?: string }).code ?? String(x)));
+
+  async function viaFetch(port: number, tlsOptions: Record<string, unknown>): Promise<Outcome> {
+    try {
+      const res = await fetch(`https://127.0.0.1:${port}/`, { tls: tlsOptions, signal: AbortSignal.timeout(3000) } as RequestInit);
+      await res.arrayBuffer();
+      return { ok: true, status: res.status };
+    } catch (err) {
+      return failure(err);
+    }
+  }
+  function viaTls(port: number, servername: string, options: Record<string, unknown>): Promise<Outcome> {
+    return new Promise((resolve) => {
+      const socket = tls.connect({ host: "127.0.0.1", port, servername, ...options }, () => {
+        resolve({ ok: true, authorized: socket.authorized, authorizationError: reason(socket.authorizationError) });
+        socket.end();
+      });
+      socket.once("error", (err) => resolve(failure(err)));
+      socket.setTimeout(3000, () => {
+        socket.destroy();
+        resolve({ ok: false, code: "ETIMEDOUT", message: "no TLS handshake within 3 s" });
+      });
+    });
+  }
+
+  const describeCert = (pem: string) => {
+    const x = new X509Certificate(pem);
+    return {
+      subject: x.subject,
+      subjectAltName: x.subjectAltName,
+      validFrom: new Date(x.validFrom).toISOString(),
+      validTo: new Date(x.validTo).toISOString(),
+      expired: Date.now() > Date.parse(x.validTo),
+      selfIssued: x.subject === x.issuer,
+      fingerprint256: x.fingerprint256,
+    };
+  };
+
+  const server = Bun.serve({
+    port: 3063,
+    routes: {
+      "/check": async () => {
+        const cases = {
+          "1 expired, not trusted (fetch)": { expect: "CERT_HAS_EXPIRED", got: await viaFetch(expired.port, {}) },
+          "2 expired, trusted with ca (fetch)": { expect: "CERT_HAS_EXPIRED", got: await viaFetch(expired.port, { ca: EXPIRED_TLS_CERT }) },
+          "3 self-signed, not trusted (fetch)": { expect: "DEPTH_ZERO_SELF_SIGNED_CERT", got: await viaFetch(selfSigned.port, {}) },
+          "4 self-signed, trusted with ca (fetch)": { expect: "200", got: await viaFetch(selfSigned.port, { ca: DEV_TLS_CERT }) },
+          "5 trusted, wrong host name (node:tls)": { expect: "ERR_TLS_CERT_ALTNAME_INVALID", got: await viaTls(selfSigned.port, "wrong.example", { ca: DEV_TLS_CERT }) },
+          "6 expired, rejectUnauthorized: false (node:tls)": {
+            expect: "connected, authorizationError CERT_HAS_EXPIRED",
+            got: await viaTls(expired.port, "localhost", { rejectUnauthorized: false }),
+          },
+        };
+        return Response.json({ bun: Bun.version, cases });
+      },
+      "/certs": () => Response.json({ expired: describeCert(EXPIRED_TLS_CERT), devCert: describeCert(DEV_TLS_CERT) }),
+    },
+    fetch: () => Response.json({ error: "Not Found" }, { status: 404 }),
+    error: errorResponse,
+  });
+
+  console.log(`63 tls_cert_errors → ${server.url}check  (expired cert on :${expired.port}, self-signed on :${selfSigned.port})`);
+  register("63", {
+    url: server.url,
+    stop: async (force?: boolean) => {
+      await Promise.all([expired.stop(force), selfSigned.stop(force)]);
+      return server.stop(force);
+    },
+  });
+}
+
+
+// ========== [64] 64_http3.ts ==========
 // Level: Advanced. HTTP/3 (experimental).
 // HTTP/3 runs over QUIC (UDP) on the same port number as the TCP listener.
 // Requires TLS. Most curl builds lack --http3-only; plain HTTPS still works.
-async function start60() {
-  // 60. HTTP/3 (실험적) — TLS 필수, 같은 포트 TCP+UDP
-  // 실행: bun --hot 60_http3.ts
+async function start64() {
+  // 64. HTTP/3 (실험적) — TLS 필수, 같은 포트 TCP+UDP
+  // 실행: bun --hot 64_http3.ts
   // 확인:
-  //   curl -k --http3-only https://localhost:3060/     # curl 이 HTTP/3 지원할 때
-  //   curl -k https://localhost:3060/                  # HTTP/1.1 로도 응답 (http1 기본 on)
+  //   curl -k --http3-only https://localhost:3064/     # curl 이 HTTP/3 지원할 때
+  //   curl -k https://localhost:3064/                  # HTTP/1.1 로도 응답 (http1 기본 on)
   //
   // 주의: Unix 소켓과 함께 쓸 수 없음 (QUIC=UDP)
 
@@ -5157,7 +5746,7 @@ async function start60() {
   await ensureDevCert(CERT_DIR); // UPDATED: creates _certs/*.pem if missing
 
   const server = Bun.serve({
-    port: 3060,
+    port: 3064,
     tls: {
       key: Bun.file(`${CERT_DIR}/key.pem`),
       cert: Bun.file(`${CERT_DIR}/cert.pem`),
@@ -5178,23 +5767,23 @@ async function start60() {
     },
   });
 
-  console.log(`60 http3 → ${server.url}`);
+  console.log(`64 http3 → ${server.url}`);
   console.log("  try: curl -k --http3-only " + server.url);
-    push("60", server);
+    push("64", server);
 
 }
 
 
-// ========== [61] 61_html_import.ts ==========
-// ★ IMPORTANT — first step towards the official bun.com sample "Frontend"; full version: [76].
+// ========== [65] 65_html_import.ts ==========
+// ★ IMPORTANT — first step towards the official bun.com sample "Frontend"; full version: [80].
 // Level: Advanced. HTML import (full-stack bundling).
 // `import homepage from "./index.html"` makes Bun bundle the page's
 // <script>/<link> files when the server starts. With development: true you
 // get source maps and browser hot reload; production uses `bun build`.
-async function start61() {
-  // 61. HTML import — 풀스택 번들 + bun --hot 브라우저 HMR
-  // 실행: bun --hot 61_html_import.ts
-  // 확인: 브라우저 http://localhost:3061/
+async function start65() {
+  // 65. HTML import — 풀스택 번들 + bun --hot 브라우저 HMR
+  // 실행: bun --hot 65_html_import.ts
+  // 확인: 브라우저 http://localhost:3065/
   //       _html_import/app.ts 를 수정·저장하면 브라우저가 자동 갱신(HMR)
   //
   // 인라인 HTML 문자열과 달리, HTML 파일 import 는 Bun 번들러를 탄다.
@@ -5267,7 +5856,7 @@ console.log("[app.ts] loaded — 이 파일을 저장하면 HMR");
   const { default: homepage } = await import(`${PAGE_DIR}/index.html`);
 
   const server = Bun.serve({
-    port: 3061,
+    port: 3065,
     routes: {
       "/": homepage,
       "/api/time": () => Response.json({ now: Date.now() }),
@@ -5278,22 +5867,22 @@ console.log("[app.ts] loaded — 이 파일을 저장하면 HMR");
     development: true,
   });
 
-  console.log(`61 html_import → ${server.url}`);
+  console.log(`65 html_import → ${server.url}`);
   console.log("  edit _html_import/app.ts then save → browser HMR");
-    push("61", server);
+    push("65", server);
 
 }
 
 
-// ========== [62] 62_ws_advanced.ts ==========
+// ========== [66] 66_ws_advanced.ts ==========
 // Level: Advanced. WebSocket backpressure.
 // ws.send() returns the bytes sent, -1 if queued because the client reads
 // slowly (backpressure), or 0 if dropped. drain() fires when the queue
 // empties. cork() batches several sends into one network write.
-async function start62() {
-  // 62. WebSocket 고급 — perMessageDeflate · 백프레셔 · cork · data
-  // 실행: bun --hot 62_ws_advanced.ts
-  // 확인: 브라우저 http://localhost:3062/
+async function start66() {
+  // 66. WebSocket 고급 — perMessageDeflate · 백프레셔 · cork · data
+  // 실행: bun --hot 66_ws_advanced.ts
+  // 확인: 브라우저 http://localhost:3066/
 
   type WsData = { id: string; joinedAt: number };
 
@@ -5326,7 +5915,7 @@ async function start62() {
   </html>`;
 
   const server = Bun.serve({
-    port: 3062,
+    port: 3066,
     routes: {
       "/": () =>
         new Response(html, {
@@ -5373,24 +5962,24 @@ async function start62() {
     },
   });
 
-  console.log(`62 ws_advanced → ${server.url}`);
-    push("62", server);
+  console.log(`66 ws_advanced → ${server.url}`);
+    push("66", server);
 
 }
 
 
-// ========== [63] 63_jwt.ts ==========
+// ========== [67] 67_jwt.ts ==========
 // Level: Advanced. JWT (HS256) with Web Crypto only.
 // A JWT is base64url(header).base64url(payload).base64url(signature).
 // Anyone can READ the payload; the signature only proves it was not
 // changed. Never put secrets in it.
-async function start63() {
-  // 63. JWT (HMAC-SHA256) — Web Crypto만 사용, npm 0
-  // 실행: bun --hot 63_jwt.ts
+async function start67() {
+  // 67. JWT (HMAC-SHA256) — Web Crypto만 사용, npm 0
+  // 실행: bun --hot 67_jwt.ts
   // 확인:
-  //   TOKEN=$(curl -s -X POST http://localhost:3063/login \
+  //   TOKEN=$(curl -s -X POST http://localhost:3067/login \
   //     -H 'Content-Type: application/json' -d '{"sub":"ada"}' | bun -e 'console.log((await Bun.stdin.json()).token)')
-  //   curl -i http://localhost:3063/secret -H "Authorization: Bearer $TOKEN"
+  //   curl -i http://localhost:3067/secret -H "Authorization: Bearer $TOKEN"
 
   const SECRET = "dev-only-change-me";
 
@@ -5472,7 +6061,7 @@ async function start63() {
   }
 
   const server = Bun.serve({
-    port: 3063,
+    port: 3067,
     routes: {
       "/": () =>
         new Response("POST /login {sub} → GET /secret (Bearer JWT)\n"),
@@ -5502,26 +6091,26 @@ async function start63() {
     },
   });
 
-  console.log(`63 jwt → ${server.url}`);
-    push("63", server);
+  console.log(`67 jwt → ${server.url}`);
+    push("67", server);
 
 }
 
 
-// ========== [64] 64_mini_app.ts ==========
+// ========== [68] 68_mini_app.ts ==========
 // Level: Advanced. An Express-style mini framework (MiniFramework above).
 // app.listen() wraps Bun.serve({ fetch }) and matches routes in JavaScript.
 // Native `routes` ([04], [05]) match in C++ and are faster; a wrapper like
 // this trades speed for a familiar API.
-async function start64() {
-  // 64. Express식 미니 프레임워크 — app.get/post + 미들웨어 + :id
-  // 실행: bun --hot 64_mini_app.ts
+async function start68() {
+  // 68. Express식 미니 프레임워크 — app.get/post + 미들웨어 + :id
+  // 실행: bun --hot 68_mini_app.ts
   // 확인:
-  //   curl http://localhost:3064/
-  //   curl http://localhost:3064/api/users
-  //   curl -X POST http://localhost:3064/api/users \
+  //   curl http://localhost:3068/
+  //   curl http://localhost:3068/api/users
+  //   curl -X POST http://localhost:3068/api/users \
   //     -H 'Content-Type: application/json' -d '{"name":"lin"}'
-  //   curl http://localhost:3064/api/users/<id>
+  //   curl http://localhost:3068/api/users/<id>
 
   type User = { id: string; name: string };
   const users: User[] = [{ id: "1", name: "ada" }];
@@ -5564,24 +6153,24 @@ async function start64() {
     res.json(user);
   });
 
-  const server = app.listen(3064);
-  console.log(`64 mini_app → ${server.url}`);
-    push("64", server);
+  const server = app.listen(3068);
+  console.log(`68 mini_app → ${server.url}`);
+    push("68", server);
 
 }
 
 
-// ========== [65] 65_production.ts ==========
+// ========== [69] 69_production.ts ==========
 // Level: Advanced. Everything together: REST + session + SQLite + WS.
-async function start65() {
-  // 65. 실전 통합 — REST + 쿠키세션 + WS pub/sub + metrics + graceful
-  // 실행: bun --hot 65_production.ts
+async function start69() {
+  // 69. 실전 통합 — REST + 쿠키세션 + WS pub/sub + metrics + graceful
+  // 실행: bun --hot 69_production.ts
   // 확인:
-  //   curl http://localhost:3065/health
-  //   curl -c /tmp/p.txt -b /tmp/p.txt -X POST http://localhost:3065/api/login \
+  //   curl http://localhost:3069/health
+  //   curl -c /tmp/p.txt -b /tmp/p.txt -X POST http://localhost:3069/api/login \
   //     -H 'Content-Type: application/json' -d '{"user":"ada"}'
-  //   curl -c /tmp/p.txt -b /tmp/p.txt http://localhost:3065/api/me
-  //   브라우저: http://localhost:3065/
+  //   curl -c /tmp/p.txt -b /tmp/p.txt http://localhost:3069/api/me
+  //   브라우저: http://localhost:3069/
 
   type WsData = { user: string; room: string };
 
@@ -5626,7 +6215,7 @@ async function start65() {
   </body></html>`;
 
   const server = Bun.serve({
-    port: 3065,
+    port: 3069,
     development: false,
     maxRequestBodySize: 1024 * 1024, // 1MB — 초과 시 자동 413
     routes: {
@@ -5733,8 +6322,8 @@ async function start65() {
   // never ran. The registered stop() now stops the server AND closes the
   // database, and shutdownAll() calls it. (register() is defined in the
   // extended section; function declarations are hoisted.)
-  console.log(`65 production → ${server.url}`);
-  register("65", {
+  console.log(`69 production → ${server.url}`);
+  register("69", {
     url: server.url,
     stop: async (force?: boolean) => {
       await server.stop(force);
@@ -5745,23 +6334,23 @@ async function start65() {
 }
 
 
-// ========== [66] 66_hardening.ts ==========
+// ========== [70] 70_hardening.ts ==========
 // Level: Advanced. Hardening switches.
 // development: false disables Bun's HTML error page; maxRequestBodySize is
 // enforced in native code while the body arrives, before any JS runs
 // (the default is 128 MB).
-async function start66() {
-  // 66. maxRequestBodySize · development:false — 프로덕션 하드닝 포인트
-  // 실행: bun --hot 66_hardening.ts
+async function start70() {
+  // 70. maxRequestBodySize · development:false — 프로덕션 하드닝 포인트
+  // 실행: bun --hot 70_hardening.ts
   // 확인:
-  //   curl -i -X POST http://localhost:3066/echo -H 'Content-Type: text/plain' -d 'hi'
+  //   curl -i -X POST http://localhost:3070/echo -H 'Content-Type: text/plain' -d 'hi'
   //   # 큰 바디 → 413 (핸들러 도달 전 자동)
   //   dd if=/dev/zero bs=1024 count=20 2>/dev/null | \
-  //     curl -i -X POST http://localhost:3066/echo \
+  //     curl -i -X POST http://localhost:3070/echo \
   //       -H 'Content-Type: application/octet-stream' --data-binary @-
 
   const server = Bun.serve({
-    port: 3066,
+    port: 3070,
     development: false, // 내장 에러 페이지 비활성 (프로덕션 권장)
     maxRequestBodySize: 8 * 1024, // 8KB — 초과 시 자동 413
     routes: {
@@ -5800,22 +6389,22 @@ async function start66() {
     },
   });
 
-  console.log(`66 hardening → ${server.url}`);
-    push("66", server);
+  console.log(`70 hardening → ${server.url}`);
+    push("70", server);
 
 }
 
 
-// ========== [67] 67_ws_publish.ts ==========
+// ========== [71] 71_ws_publish.ts ==========
 // Level: Advanced. server.publish vs ws.publish.
 // server.publish -> every subscriber, sender included.
 // ws.publish     -> every subscriber EXCEPT the sending socket (chat style).
-async function start67() {
-  // 67. ws.publish vs server.publish
-  // 실행: bun --hot 67_ws_publish.ts
+async function start71() {
+  // 71. ws.publish vs server.publish
+  // 실행: bun --hot 71_ws_publish.ts
   // 확인: 브라우저 탭 2개
-  //   http://localhost:3067/?user=ada
-  //   http://localhost:3067/?user=bob
+  //   http://localhost:3071/?user=ada
+  //   http://localhost:3071/?user=bob
   //
   // | API | 수신자 |
   // |---|---|
@@ -5867,7 +6456,7 @@ async function start67() {
   </html>`;
 
   const server = Bun.serve({
-    port: 3067,
+    port: 3071,
     routes: {
       "/": () =>
         new Response(html, {
@@ -5916,15 +6505,15 @@ async function start67() {
     },
   });
 
-  console.log(`67 ws_publish → ${server.url}?user=ada`);
+  console.log(`71 ws_publish → ${server.url}?user=ada`);
   console.log(`  다른 탭: ${server.url}?user=bob`);
-    push("67", server);
+    push("71", server);
 
 }
 
 
-// ========== [68] 68_jobs_sse.ts ==========
-async function start68() {
+// ========== [72] 72_jobs_sse.ts ==========
+async function start72() {
   // Level: Advanced. Background jobs: 202 Accepted + polling + SSE push.
   // Some work is too slow for one request. The asynchronous pattern:
   //   POST /jobs        -> 202 Accepted + Location: /jobs/<id>  ("not done yet")
@@ -5941,8 +6530,8 @@ async function start68() {
   // SSE cleanup: when the client disconnects, req.signal fires and the
   // listener is removed; otherwise every closed tab leaks one listener.
   // Try:
-  //   curl -N localhost:3068/events &
-  //   curl -X POST localhost:3068/jobs -H 'Content-Type: application/json' -d '{"rounds":200000}'
+  //   curl -N localhost:3072/events &
+  //   curl -X POST localhost:3072/jobs -H 'Content-Type: application/json' -d '{"rounds":200000}'
 
   type Job = { id: string; status: "queued" | "running" | "done" | "failed"; rounds: number; result?: string; error?: string; createdAt: string; finishedAt?: string };
   const CONCURRENCY = 2;
@@ -5980,7 +6569,7 @@ async function start68() {
   }
 
   const server = Bun.serve({
-    port: 3068,
+    port: 3072,
     routes: {
       "/jobs": {
         POST: async (req) => {
@@ -6033,27 +6622,27 @@ async function start68() {
     error: errorResponse,
   });
 
-  console.log(`68 jobs_sse → ${server.url}`);
-  register("68", server);
+  console.log(`72 jobs_sse → ${server.url}`);
+  register("72", server);
 }
 
 
-// ========== [69] 69_ws_rpc.ts ==========
-async function start69() {
+// ========== [73] 73_ws_rpc.ts ==========
+async function start73() {
   // Level: Advanced. A real protocol on top of WebSocket.
   // (a) RPC WITH IDS. Replies, pushes and other replies share one socket
   //     and can arrive in any order, so each request carries an id:
   //       -> {"id":7,"method":"add","params":{"a":1,"b":2}}
   //       <- {"type":"rpc","id":7,"ok":true,"result":3}
-  //     The client resolves the matching promise by id ([74] shows it).
+  //     The client resolves the matching promise by id ([78] shows it).
   // (b) ROOMS. A room is a topic "room:<name>". room.say uses
-  //     ws.publish, which skips the sender ([67] explains the difference).
+  //     ws.publish, which skips the sender ([71] explains the difference).
   // (c) BINARY FRAMES arrive as Buffer instead of string; the server
   //     answers with their size and SHA-256 (no base64, no +33%).
   // (d) RATE LIMIT with a token bucket per socket: up to 10 tokens,
   //     refilled 10 per second, one per message. Bursts are fine, floods get
   //     429. The refill is computed lazily on each message: no timers.
-  //     Compare with the fixed window in [32].
+  //     Compare with the fixed window in [34].
   // Errors reuse HTTP status codes (400, 404, 422, 429) so HTTP and WS
   // clients speak the same language.
 
@@ -6098,7 +6687,7 @@ async function start69() {
   const reply = (ws: Bun.ServerWebSocket<D>, data: unknown) => void ws.send(JSON.stringify(data));
 
   const server = Bun.serve({
-    port: 3069,
+    port: 3073,
     routes: {
       "/": () => new Response(`WebSocket at /ws. Methods: ${Object.keys(methods).join(", ")}. Binary frames -> sha256.\n`),
       "/ws": (req, srv) =>
@@ -6141,13 +6730,13 @@ async function start69() {
     },
   });
 
-  console.log(`69 ws_rpc → ${server.url.href.replace("http", "ws")}ws`);
-  register("69", server);
+  console.log(`73 ws_rpc → ${server.url.href.replace("http", "ws")}ws`);
+  register("73", server);
 }
 
 
-// ========== [70] 70_image_service.ts ==========
-async function start70() {
+// ========== [74] 74_image_service.ts ==========
+async function start74() {
   // Level: Advanced. Image processing with Bun.Image (no sharp, no npm).
   // Bun.Image is lazy: new Bun.Image(bytes).resize(...).webp() only records
   // steps; `await .bytes()` runs decode -> resize -> encode once, on a
@@ -6163,8 +6752,8 @@ async function start70() {
   // the EXIF Orientation is APPLIED to the pixels first, so photos do not
   // end up sideways. GIF cannot be re-encoded (Bun.Image has no gif()).
   // Try:
-  //   curl --data-binary @photo.jpg localhost:3070/image/info
-  //   curl --data-binary @photo.jpg 'localhost:3070/image/thumb?w=128' -o thumb.webp
+  //   curl --data-binary @photo.jpg localhost:3074/image/info
+  //   curl --data-binary @photo.jpg 'localhost:3074/image/thumb?w=128' -o thumb.webp
 
   const MAX_PIXELS = 25_000_000;
   const hasExif = (b: Uint8Array) => Buffer.from(b).includes("Exif\0\0");
@@ -6181,7 +6770,7 @@ async function start70() {
   }
 
   const server = Bun.serve({
-    port: 3070,
+    port: 3074,
     maxRequestBodySize: 8 * 1024 * 1024,
     routes: {
       "/image/info": {
@@ -6227,13 +6816,13 @@ async function start70() {
     error: errorResponse,
   });
 
-  console.log(`70 image_service → ${server.url}`);
-  register("70", server);
+  console.log(`74 image_service → ${server.url}`);
+  register("74", server);
 }
 
 
-// ========== [71] 71_vault.ts ==========
-async function start71() {
+// ========== [75] 75_vault.ts ==========
+async function start75() {
   // Level: Advanced. A one-folder file exchange: the rules from
   // ../server/server.ts, condensed into one example.
   //   THE RULE: this example touches only ./_vault, flat (no sub-folders),
@@ -6246,7 +6835,7 @@ async function start71() {
   //     fatal: true) with no control characters except tab/newline (blocks
   //     binaries and terminal-escape injection); an image must decode and
   //     its real format must match the extension.
-  //   - Images are re-encoded ([70]) so EXIF/GPS and hidden payloads are
+  //   - Images are re-encoded ([74]) so EXIF/GPS and hidden payloads are
   //     never stored.
   //   - Quota: total bytes. The check and the reservation happen in one
   //     synchronous block (no await between them). JS is single-threaded,
@@ -6254,9 +6843,9 @@ async function start71() {
   //   - Downloads: ETag = SHA-256 (304 on If-None-Match), Content-Type set
   //     by us, X-Content-Type-Options: nosniff so browsers never guess.
   // Try:
-  //   curl -X PUT localhost:3071/files/app.log --data-binary $'line 1\nline 2\n'
-  //   curl -X PUT localhost:3071/files/evil.sh --data-binary 'x'     -> 400
-  //   curl -X PUT localhost:3071/files/fake.png --data-binary 'x'    -> 415
+  //   curl -X PUT localhost:3075/files/app.log --data-binary $'line 1\nline 2\n'
+  //   curl -X PUT localhost:3075/files/evil.sh --data-binary 'x'     -> 400
+  //   curl -X PUT localhost:3075/files/fake.png --data-binary 'x'    -> 415
 
   const DIR = `${BASE_DIR}/_vault`;
   await $`mkdir -p ${DIR}`.quiet();
@@ -6282,7 +6871,7 @@ async function start71() {
   }
 
   const server = Bun.serve({
-    port: 3071,
+    port: 3075,
     maxRequestBodySize: 6 * 1024 * 1024,
     routes: {
       "/files": async () => {
@@ -6362,13 +6951,13 @@ async function start71() {
     error: errorResponse,
   });
 
-  console.log(`71 vault → ${server.url}files`);
-  register("71", server);
+  console.log(`75 vault → ${server.url}files`);
+  register("75", server);
 }
 
 
-// ========== [72] 72_workers.ts ==========
-async function start72() {
+// ========== [76] 76_workers.ts ==========
+async function start76() {
   // Level: Advanced. CPU work on other threads with Worker.
   // JavaScript runs your handlers on ONE thread. A CPU-heavy loop there
   // blocks every other request until it finishes. A Worker is a second
@@ -6378,10 +6967,10 @@ async function start72() {
   // one file; normally you write `new Worker(new URL("./w.ts", import.meta.url))`.
   // A small pool (2 workers) is reused: starting a worker costs a few ms.
   // Each request gets an id so replies can be matched (same idea as the
-  // WebSocket RPC in [69]).
+  // WebSocket RPC in [73]).
   // Try (two terminals):
-  //   curl 'localhost:3072/hash/main?rounds=300000'  & curl localhost:3072/ping   (ping waits)
-  //   curl 'localhost:3072/hash/worker?rounds=300000' & curl localhost:3072/ping  (ping is instant)
+  //   curl 'localhost:3076/hash/main?rounds=300000'  & curl localhost:3076/ping   (ping waits)
+  //   curl 'localhost:3076/hash/worker?rounds=300000' & curl localhost:3076/ping  (ping is instant)
 
   const src = `
     self.onmessage = (e) => {
@@ -6412,7 +7001,7 @@ async function start72() {
   const roundsOf = (req: Request) => Math.min(2_000_000, Math.max(1, Number(qp(req, "rounds")) || 100_000));
 
   const server = Bun.serve({
-    port: 3072,
+    port: 3076,
     routes: {
       "/ping": () => Response.json({ ok: true, at: Date.now() }),
       "/hash/main": (req) => {
@@ -6429,8 +7018,8 @@ async function start72() {
     fetch: () => Response.json({ error: "Not Found" }, { status: 404 }),
   });
 
-  console.log(`72 workers → ${server.url}`);
-  register("72", {
+  console.log(`76 workers → ${server.url}`);
+  register("76", {
     url: server.url,
     stop: async (force?: boolean) => {
       for (const w of pool) w.terminate();
@@ -6441,8 +7030,8 @@ async function start72() {
 }
 
 
-// ========== [73] 73_tcp_udp.ts ==========
-async function start73() {
+// ========== [77] 77_tcp_udp.ts ==========
+async function start77() {
   // Level: Advanced. Raw TCP and UDP (no HTTP): Bun.listen / Bun.udpSocket.
   // TCP is a STREAM of bytes with no message boundaries: one write("ab")
   // may arrive as "a" + "b", and two writes may arrive glued together. So
@@ -6450,14 +7039,14 @@ async function start73() {
   // socket keeps its own unfinished line in socket.data.
   // UDP sends separate DATAGRAMS: boundaries are kept, but delivery and
   // order are not guaranteed, and there is no connection.
-  // Both listen on port 3073 (TCP and UDP ports are separate spaces).
+  // Both listen on port 3077 (TCP and UDP ports are separate spaces).
   // Try:
-  //   printf 'hello\nquit\n' | nc 127.0.0.1 3073        (TCP: uppercased lines)
-  //   echo -n ping | nc -u -w1 127.0.0.1 3073           (UDP echo)
+  //   printf 'hello\nquit\n' | nc 127.0.0.1 3077        (TCP: uppercased lines)
+  //   echo -n ping | nc -u -w1 127.0.0.1 3077           (UDP echo)
 
   const tcp = Bun.listen<{ buf: string }>({
     hostname: "127.0.0.1",
-    port: 3073,
+    port: 3077,
     socket: {
       open(socket) {
         socket.data = { buf: "" };
@@ -6478,14 +7067,14 @@ async function start73() {
         if (socket.data.buf.length > 64 * 1024) socket.end("line too long\n"); // framing needs a limit too
       },
       error(_socket, err) {
-        console.error("[73] tcp error", err.message);
+        console.error("[77] tcp error", err.message);
       },
     },
   });
 
   const udp = await Bun.udpSocket({
     hostname: "127.0.0.1",
-    port: 3073,
+    port: 3077,
     socket: {
       data(socket, buf, port, addr) {
         socket.send(`echo:${buf.toString()}`, port, addr);
@@ -6493,8 +7082,8 @@ async function start73() {
     },
   });
 
-  console.log(`73 tcp_udp → tcp://127.0.0.1:${tcp.port} + udp://127.0.0.1:${udp.port}`);
-  register("73", {
+  console.log(`77 tcp_udp → tcp://127.0.0.1:${tcp.port} + udp://127.0.0.1:${udp.port}`);
+  register("77", {
     url: new URL(`tcp://127.0.0.1:${tcp.port}`),
     stop: () => {
       tcp.stop(true);
@@ -6504,25 +7093,25 @@ async function start73() {
 }
 
 
-// ========== [74] 74_client_patterns.ts ==========
-async function start74() {
+// ========== [78] 78_client_patterns.ts ==========
+async function start78() {
   // Level: Advanced. The CLIENT side: everything a program that calls
   // APIs needs. GET /run executes each pattern against the other example
   // servers and returns a JSON report (also used by the self-test).
   //   parallel      Promise.all: total time = slowest, not the sum
   //   allSettled    every outcome, never throws
   //   timeout       AbortSignal.timeout(ms) -> "TimeoutError"
-  //   abort         AbortController -> "AbortError"; the server sees it ([40])
+  //   abort         AbortController -> "AbortError"; the server sees it ([42])
   //   retry         exponential backoff + jitter, only for 5xx/429/network;
   //                 only for idempotent requests (GET/PUT/DELETE)
-  //   paging        follow nextCursor with an async generator ([37])
-  //   ndjson        JSONL.parseChunk on a streamed body ([39]); keeps the
+  //   paging        follow nextCursor with an async generator ([39])
+  //   ndjson        JSONL.parseChunk on a streamed body ([41]); keeps the
   //                 unfinished tail of each chunk for the next one
-  //   sse           parse "event:/data:" blocks from a fetch stream ([68])
-  //   wsRpc         WebSocket calls matched to replies by id ([69])
+  //   sse           parse "event:/data:" blocks from a fetch stream ([72])
+  //   wsRpc         WebSocket calls matched to replies by id ([73])
   // Important: fetch() does NOT throw on 404/500, only when there is no
   // answer at all. Always look at res.ok / res.status.
-  // Try: curl localhost:3074/run
+  // Try: curl localhost:3078/run
 
   const base = (port: number) => `http://127.0.0.1:${port}`;
 
@@ -6549,7 +7138,7 @@ async function start74() {
   async function* pages(limit: number): AsyncGenerator<{ id: number }> {
     let cursor: number | null = 0;
     while (cursor !== null) {
-      const r = (await (await fetch(`${base(3037)}/api/notes?limit=${limit}&cursor=${cursor}`)).json()) as { items: { id: number }[]; nextCursor: number | null };
+      const r = (await (await fetch(`${base(3039)}/api/notes?limit=${limit}&cursor=${cursor}`)).json()) as { items: { id: number }[]; nextCursor: number | null };
       yield* r.items;
       cursor = r.nextCursor;
     }
@@ -6617,42 +7206,42 @@ async function start74() {
   const demos: Record<string, () => Promise<{ ok: boolean; detail: unknown }>> = {
     async parallel() {
       let t = performance.now();
-      for (let i = 0; i < 4; i++) await fetch(`${base(3040)}/slow?ms=80`);
+      for (let i = 0; i < 4; i++) await fetch(`${base(3042)}/slow?ms=80`);
       const sequential = Math.round(performance.now() - t);
       t = performance.now();
-      await Promise.all(Array.from({ length: 4 }, () => fetch(`${base(3040)}/slow?ms=80`)));
+      await Promise.all(Array.from({ length: 4 }, () => fetch(`${base(3042)}/slow?ms=80`)));
       const parallel = Math.round(performance.now() - t);
       return { ok: parallel < sequential / 2, detail: { sequential, parallel } };
     },
     async allSettled() {
       const r = await Promise.allSettled([
-        fetch(`${base(3040)}/slow?ms=1`),
-        fetch(`${base(3040)}/slow?ms=2000`, { signal: AbortSignal.timeout(50) }),
+        fetch(`${base(3042)}/slow?ms=1`),
+        fetch(`${base(3042)}/slow?ms=2000`, { signal: AbortSignal.timeout(50) }),
         fetch("http://127.0.0.1:1/", { signal: AbortSignal.timeout(1000) }), // nobody listens on port 1
       ]);
       const outcome = r.map((s) => (s.status === "fulfilled" ? "fulfilled" : (s.reason as Error).name));
       return { ok: outcome[0] === "fulfilled" && outcome[1] === "TimeoutError" && outcome[2] !== "fulfilled", detail: outcome };
     },
     async timeout() {
-      const name = await fetch(`${base(3040)}/slow?ms=2000`, { signal: AbortSignal.timeout(100) }).then(
+      const name = await fetch(`${base(3042)}/slow?ms=2000`, { signal: AbortSignal.timeout(100) }).then(
         () => "no error",
         (e: Error) => e.name,
       );
       return { ok: name === "TimeoutError", detail: name };
     },
     async abort() {
-      const before = ((await (await fetch(`${base(3040)}/stats`)).json()) as { aborted: number }).aborted;
+      const before = ((await (await fetch(`${base(3042)}/stats`)).json()) as { aborted: number }).aborted;
       const ac = new AbortController();
-      const p = fetch(`${base(3040)}/slow?ms=2000`, { signal: ac.signal }).catch((e: Error) => e.name);
+      const p = fetch(`${base(3042)}/slow?ms=2000`, { signal: ac.signal }).catch((e: Error) => e.name);
       setTimeout(() => ac.abort(), 80);
       const name = await p;
       await Bun.sleep(80);
-      const after = ((await (await fetch(`${base(3040)}/stats`)).json()) as { aborted: number }).aborted;
+      const after = ((await (await fetch(`${base(3042)}/stats`)).json()) as { aborted: number }).aborted;
       return { ok: name === "AbortError" && after > before, detail: { clientSaw: name, serverAbortedCount: after } };
     },
     async retry() {
       const key = `k-${Bun.randomUUIDv7()}`;
-      const { res, attempts } = await withRetry(() => fetch(`${base(3040)}/flaky?key=${key}&fail=2`));
+      const { res, attempts } = await withRetry(() => fetch(`${base(3042)}/flaky?key=${key}&fail=2`));
       return { ok: res.status === 200 && attempts === 3, detail: { status: res.status, attempts } };
     },
     async paging() {
@@ -6661,7 +7250,7 @@ async function start74() {
       return { ok: ids.length >= 5 && ids.every((id, i) => i === 0 || id > ids[i - 1]!), detail: { count: ids.length } };
     },
     async ndjson() {
-      const res = await fetch(`${base(3039)}/export.ndjson`);
+      const res = await fetch(`${base(3041)}/export.ndjson`);
       let rest = "";
       let rows = 0;
       let chunks = 0;
@@ -6675,12 +7264,12 @@ async function start74() {
     },
     async sse() {
       const ac = new AbortController();
-      const res = await fetch(`${base(3068)}/events`, { signal: ac.signal });
+      const res = await fetch(`${base(3072)}/events`, { signal: ac.signal });
       let jobId = "";
       const seen: string[] = [];
       for await (const ev of sse(res)) {
         if (ev.event === "hello") {
-          const r = await fetch(`${base(3068)}/jobs`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rounds: 2000 }) });
+          const r = await fetch(`${base(3072)}/jobs`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rounds: 2000 }) });
           jobId = ((await r.json()) as { id: string }).id;
           continue;
         }
@@ -6693,7 +7282,7 @@ async function start74() {
       return { ok: seen.at(-1) === "done", detail: seen };
     },
     async wsRpc() {
-      const c = rpcClient(`ws://127.0.0.1:3069/ws`);
+      const c = rpcClient(`ws://127.0.0.1:3073/ws`);
       await c.opened;
       const [sum, pong] = await Promise.all([c.call<number>("add", { a: 2, b: 40 }), c.call<{ pong: number }>("ping")]);
       const bad = await c.call<unknown>("nope").then(() => "no error", (e: Error) => e.message);
@@ -6703,7 +7292,7 @@ async function start74() {
   };
 
   const server = Bun.serve({
-    port: 3074,
+    port: 3078,
     routes: {
       "/run": async (req, srv) => {
         srv.timeout(req, 30); // the demos take a few seconds in total
@@ -6722,17 +7311,17 @@ async function start74() {
     fetch: () => Response.json({ error: "Not Found" }, { status: 404 }),
   });
 
-  console.log(`74 client_patterns → ${server.url}run`);
-  register("74", server);
+  console.log(`78 client_patterns → ${server.url}run`);
+  register("78", server);
 }
 
 
-// ========== [75] 75_spawn_ipc.ts ==========
-async function start75() {
+// ========== [79] 79_spawn_ipc.ts ==========
+async function start79() {
   // Level: Advanced. Bun.spawn with IPC: a supervised child PROCESS that
   // exchanges messages with this one.
   //
-  // Worker ([72]) vs child process (here)
+  // Worker ([76]) vs child process (here)
   //   Worker: a thread in the same process. Starts fast, can share memory
   //           (SharedArrayBuffer), but a native crash or out-of-memory in
   //           it takes the whole server down.
@@ -6752,9 +7341,9 @@ async function start75() {
   // purpose to show it.
   // The child program is passed with `bun -e "<code>"`, so no extra file.
   // Try:
-  //   curl 'localhost:3075/hash?text=hello'
-  //   curl localhost:3075/child
-  //   curl -X POST localhost:3075/crash
+  //   curl 'localhost:3079/hash?text=hello'
+  //   curl localhost:3079/child
+  //   curl -X POST localhost:3079/crash
 
   const CHILD = `
     process.on("message", (msg) => {
@@ -6829,7 +7418,7 @@ async function start75() {
   await ready;
 
   const server = Bun.serve({
-    port: 3075,
+    port: 3079,
     routes: {
       "/hash": async (req) => {
         const text = (qp(req, "text") ?? "").slice(0, 10_000);
@@ -6858,8 +7447,8 @@ async function start75() {
     error: errorResponse,
   });
 
-  console.log(`75 spawn_ipc → ${server.url}  (child pid ${await ready})`);
-  register("75", {
+  console.log(`79 spawn_ipc → ${server.url}  (child pid ${await ready})`);
+  register("79", {
     url: server.url,
     stop: async (force?: boolean) => {
       stopping = true;
@@ -6871,15 +7460,15 @@ async function start75() {
 }
 
 
-// ========== [76] 76_frontend.ts ==========
+// ========== [80] 80_frontend.ts ==========
 // ★ IMPORTANT — official bun.com showcase sample "Frontend".
-async function start76() {
+async function start80() {
   // Level: Advanced. A full-stack app: HTML imports for development and
   // Bun.build() for production, in one server.
   //
   // The official sample imports index.html and dashboard.html and serves
   // them with routes plus development: { hmr: true, console: true }.
-  // [61] shows a single page; this adds:
+  // [65] shows a single page; this adds:
   //   - two pages that share a stylesheet (the bundler emits the shared CSS
   //     once and both pages link it);
   //   - TSX WITHOUT React: the /** @jsx h */ pragma tells the transpiler to
@@ -6897,9 +7486,9 @@ async function start76() {
   // The source files are written to _frontend/ only if missing, so you can
   // edit them while `bun --hot allblue.ts` runs and watch HMR update the page.
   // Try:
-  //   open http://localhost:3076/ and http://localhost:3076/dashboard
-  //   curl localhost:3076/build
-  //   open http://localhost:3076/dist/index.html
+  //   open http://localhost:3080/ and http://localhost:3080/dashboard
+  //   curl localhost:3080/build
+  //   open http://localhost:3080/dist/index.html
 
   const FE = `${BASE_DIR}/_frontend`;
   await writeIfMissing(
@@ -6983,7 +7572,7 @@ document.getElementById("stats")!.textContent = JSON.stringify(await res.json(),
   );
 
   // Dynamic import of an HTML file returns the same HTMLBundle a static
-  // `import homepage from "./index.html"` would (see [61]).
+  // `import homepage from "./index.html"` would (see [65]).
   const homepage = (await import(`${FE}/index.html`)).default;
   const dashboard = (await import(`${FE}/dashboard.html`)).default;
 
@@ -7001,7 +7590,7 @@ document.getElementById("stats")!.textContent = JSON.stringify(await res.json(),
 
   const startedAt = Date.now();
   const server = Bun.serve({
-    port: 3076,
+    port: 3080,
     routes: {
       "/": homepage,
       "/dashboard": dashboard,
@@ -7024,14 +7613,14 @@ document.getElementById("stats")!.textContent = JSON.stringify(await res.json(),
     development: { hmr: true, console: true },
   });
 
-  console.log(`76 frontend ★ → ${server.url}  (edit _frontend/main.tsx under bun --hot)`);
-  register("76", server);
+  console.log(`80 frontend ★ → ${server.url}  (edit _frontend/main.tsx under bun --hot)`);
+  register("80", server);
 }
 
 
-// ========== [77] 77_bun_ffi.ts ==========
+// ========== [81] 81_bun_ffi.ts ==========
 // ★ IMPORTANT — official bun.com showcase sample "FFI".
-async function start77() {
+async function start81() {
   // Level: Advanced. bun:ffi: call C functions in shared libraries (and
   // libraries written in Rust or Zig with a C ABI) without writing a
   // native addon.
@@ -7058,7 +7647,7 @@ async function start77() {
   // or hardware SDK). It is not faster than JS for small calls: each call
   // crosses the JS/C boundary.
   // Try:
-  //   curl localhost:3077/ffi
+  //   curl localhost:3081/ffi
 
   const C_SOURCE = `${tmpdir()}/bun-all-ts-ffi.c`;
   await Bun.write(
@@ -7069,7 +7658,7 @@ const char *greeting(void) { return "hello from C, compiled by TinyCC at runtime
   );
 
   const server = Bun.serve({
-    port: 3077,
+    port: 3081,
     routes: {
       "/ffi": () => {
         const report: Record<string, unknown> = { platform: process.platform, suffix };
@@ -7139,8 +7728,8 @@ const char *greeting(void) { return "hello from C, compiled by TinyCC at runtime
     error: errorResponse,
   });
 
-  console.log(`77 bun_ffi ★ → ${server.url}ffi`);
-  register("77", server);
+  console.log(`81 bun_ffi ★ → ${server.url}ffi`);
+  register("81", server);
 }
 
 
@@ -7152,7 +7741,7 @@ const char *greeting(void) { return "hello from C, compiled by TinyCC at runtime
 // ############################################################################
 // ############################################################################
 
-//   bun allblue.ts                    every example, [01]-[77]
+//   bun allblue.ts                    every example, [01]-[81]
 //   bun allblue.ts 01 05 12           only these
 //   bun allblue.ts 20-25              a range
 //   bun allblue.ts beginner           a level: beginner | intermediate | advanced
@@ -7175,20 +7764,21 @@ const START: Record<string, () => Promise<void>> = {
   "49": start49, "50": start50, "51": start51, "52": start52, "53": start53, "54": start54, "55": start55, "56": start56,
   "57": start57, "58": start58, "59": start59, "60": start60, "61": start61, "62": start62, "63": start63, "64": start64,
   "65": start65, "66": start66, "67": start67, "68": start68, "69": start69, "70": start70, "71": start71, "72": start72,
-  "73": start73, "74": start74, "75": start75, "76": start76, "77": start77,
+  "73": start73, "74": start74, "75": start75, "76": start76, "77": start77, "78": start78, "79": start79, "80": start80,
+  "81": start81,
 };
 
 const GROUPS: Record<string, string[]> = {
-  beginner: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19"],
-  intermediate: ["20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "50", "51", "52", "53"],
-  advanced: ["54", "55", "56", "57", "58", "59", "60", "61", "62", "63", "64", "65", "66", "67", "68", "69", "70", "71", "72", "73", "74", "75", "76", "77"],
-  official: ["17", "18", "45", "47", "48", "49", "50", "51", "76", "77"],
+  beginner: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20"],
+  intermediate: ["21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56"],
+  advanced: ["57", "58", "59", "60", "61", "62", "63", "64", "65", "66", "67", "68", "69", "70", "71", "72", "73", "74", "75", "76", "77", "78", "79", "80", "81"],
+  official: ["17", "18", "47", "49", "50", "51", "52", "53", "80", "81"],
 };
 
 /** Examples that call other examples, and which ones they call. */
 const NEEDS: Record<string, string[]> = {
-  "74": ["37", "39", "40", "68", "69"], // client patterns call these servers
-  "52": ["03", "55", "59", "16"], // unix socket, proxy target, TLS and gzip targets
+  "78": ["39", "41", "42", "72", "73"], // client patterns call these servers
+  "54": ["03", "58", "62", "16"], // unix socket, proxy target, TLS and gzip targets
 };
 
 function selectExamples(args: string[]): string[] {
@@ -7207,7 +7797,7 @@ function selectExamples(args: string[]): string[] {
   const unknown = [...chosen].filter((id) => !START[id]);
   if (unknown.length > 0) {
     console.error(`unknown example(s): ${unknown.map((u) => u.replace(/^\?/, "")).join(", ")}`);
-    console.error("usage: bun allblue.ts [01-77 | 20-25 | beginner | intermediate | advanced | official | all] ...");
+    console.error("usage: bun allblue.ts [01-81 | 20-25 | beginner | intermediate | advanced | official | all] ...");
     process.exit(2);
   }
   for (const id of [...chosen]) {
@@ -7222,7 +7812,7 @@ function selectExamples(args: string[]): string[] {
 
 // Starts the chosen examples one after another, on fixed ports.
 // If one port is already taken, Bun.serve throws EADDRINUSE and the whole
-// process stops: check with `lsof -nP -iTCP:3001-3077 -sTCP:LISTEN`.
+// process stops: check with `lsof -nP -iTCP:3001-3081 -sTCP:LISTEN`.
 async function startExamples(ids: string[]) {
   for (const id of ids) await START[id]!();
   // The self-test waits for this exact line before it starts testing.
@@ -7700,9 +8290,26 @@ async function defineSelfTests() {
     });
   });
 
-  describe("[20] websocket", () => {
+  describe("[20] runtime versions (1.4.5)", () => {
+    test("/versions reports the running Bun and its libraries", async () => {
+      const v = (await (await fetch(url(3020, "/versions"))).json()) as Record<string, any>;
+      expect(v.bun).toBe(Bun.version);
+      expect(v.libraries.llhttp).toBe(process.versions.llhttp);
+      expect(v.sqlite.inUse).toMatch(/^3\.\d+\.\d+$/);
+      expect(v.sqlite.has354Rules).toBe(Bun.semver.satisfies(v.sqlite.inUse, ">=3.54.0"));
+    });
+    test("/require is a semver gate; a malformed version is 400", async () => {
+      const now = (await (await fetch(url(3020, "/require?min=1.4.5"))).json()) as { ok: boolean };
+      expect(now.ok).toBe(Bun.semver.satisfies(Bun.version, ">=1.4.5"));
+      expect(await (await fetch(url(3020, "/require?min=99.0.0"))).json()).toMatchObject({ ok: false, order: -1 });
+      expect((await fetch(url(3020, "/require?min=latest"))).status).toBe(400);
+      expect(((await (await fetch(url(3020, "/changes"))).json()) as { release: string }).release).toBe("1.4.5");
+    });
+  });
+
+  describe("[21] websocket", () => {
     test("connected + echo", async () => {
-      const c = await wsOpen("ws://127.0.0.1:3020/ws");
+      const c = await wsOpen("ws://127.0.0.1:3021/ws");
       await c.waitFor((m) => m === "connected");
       c.ws.send("hi");
       expect(await c.waitFor((m) => m.startsWith("echo:"))).toBe("echo: hi");
@@ -7710,86 +8317,86 @@ async function defineSelfTests() {
     });
   });
 
-  describe("[21] cors", () => {
+  describe("[22] cors", () => {
     test("preflight 204 + CORS headers on the real request", async () => {
-      const pre = await fetch(url(3021, "/api/hello"), { method: "OPTIONS", headers: { Origin: "http://localhost:5173", "Access-Control-Request-Method": "GET" } });
+      const pre = await fetch(url(3022, "/api/hello"), { method: "OPTIONS", headers: { Origin: "http://localhost:5173", "Access-Control-Request-Method": "GET" } });
       expect(pre.status).toBe(204);
       expect(pre.headers.get("access-control-allow-origin")).toBe("*");
-      const res = await fetch(url(3021, "/api/hello"), { headers: { Origin: "http://localhost:5173" } });
+      const res = await fetch(url(3022, "/api/hello"), { headers: { Origin: "http://localhost:5173" } });
       expect(res.headers.get("access-control-allow-origin")).toBe("*");
       expect(await res.json()).toEqual({ message: "cors ok" });
     });
   });
 
-  describe("[22] upload", () => {
+  describe("[23] upload", () => {
     test("multipart upload is saved (then removed by the test)", async () => {
       const form = new FormData();
       form.append("file", new File(["hello upload"], "../evil name.txt", { type: "text/plain" }));
-      const res = await fetch(url(3022, "/upload"), { method: "POST", body: form });
+      const res = await fetch(url(3023, "/upload"), { method: "POST", body: form });
       const body = (await res.json()) as { saved: string; size: number };
       expect(body.size).toBe(12);
       expect(body.saved.startsWith(`${DIR}/_uploads/`)).toBe(true); // "/" was replaced, so it stayed in the folder
       expect(await Bun.file(body.saved).text()).toBe("hello upload");
       await Bun.file(body.saved).delete();
-      expect((await fetch(url(3022, "/upload"), { method: "POST", body: new FormData() })).status).toBe(400);
+      expect((await fetch(url(3023, "/upload"), { method: "POST", body: new FormData() })).status).toBe(400);
     });
   });
 
-  describe("[23] sse", () => {
+  describe("[24] sse", () => {
     test("10 data events, then a final 'done' event (FIXED: stops browser reconnects)", async () => {
-      const res = await fetch(url(3023, "/events"));
+      const res = await fetch(url(3024, "/events"));
       expect(res.headers.get("content-type")).toBe("text/event-stream");
       const text = await res.text(); // the stream ends after ~5 s
       expect(text).toContain('data: {"n":1');
       expect(text).toContain('data: {"n":10');
       expect(text.trimEnd().endsWith("event: done\ndata: {}")).toBe(true);
-      expect(await (await fetch(url(3023))).text()).toContain('addEventListener("done"');
+      expect(await (await fetch(url(3024))).text()).toContain('addEventListener("done"');
     }, 9000);
   });
 
-  describe("[24] auth", () => {
+  describe("[25] auth", () => {
     test("401 without or with a wrong token, 200 with the right one", async () => {
-      const no = await fetch(url(3024, "/admin"));
+      const no = await fetch(url(3025, "/admin"));
       expect(no.status).toBe(401);
       expect(no.headers.get("www-authenticate")).toBe("Bearer");
-      expect((await fetch(url(3024, "/admin"), { headers: { Authorization: "Bearer s3creT" } })).status).toBe(401);
-      expect((await fetch(url(3024, "/admin"), { headers: { Authorization: "Bearer s3cret-and-more" } })).status).toBe(401);
-      expect(await (await fetch(url(3024, "/admin"), { headers: { Authorization: "Bearer s3cret" } })).json()).toEqual({ secret: 42, message: "인증 성공" });
+      expect((await fetch(url(3025, "/admin"), { headers: { Authorization: "Bearer s3creT" } })).status).toBe(401);
+      expect((await fetch(url(3025, "/admin"), { headers: { Authorization: "Bearer s3cret-and-more" } })).status).toBe(401);
+      expect(await (await fetch(url(3025, "/admin"), { headers: { Authorization: "Bearer s3cret" } })).json()).toEqual({ secret: 42, message: "인증 성공" });
     });
   });
 
-  describe("[25] middleware", () => {
+  describe("[26] middleware", () => {
     test("X-Request-Id added by middleware", async () => {
-      const res = await fetch(url(3025, "/api/hello"));
+      const res = await fetch(url(3026, "/api/hello"));
       expect(res.headers.get("x-request-id")).toMatch(/^[0-9a-f]{8}$/);
       expect(await res.json()).toEqual({ message: "middleware ok" });
     });
   });
 
-  describe("[26] static dir", () => {
+  describe("[27] static dir", () => {
     test("files, traversal blocked, 404", async () => {
-      expect(await (await fetch(url(3026, "/hello.txt"))).text()).toBe("static dir ok\n");
-      expect(await (await fetch(url(3026, "/"))).text()).toContain("<h1>Public</h1>");
-      expect((await fetch(url(3026, "/%2e%2e/secret.txt"))).status).toBe(404); // URL normalized, stays in the folder
-      expect((await fetch(url(3026, "/missing.txt"))).status).toBe(404);
+      expect(await (await fetch(url(3027, "/hello.txt"))).text()).toBe("static dir ok\n");
+      expect(await (await fetch(url(3027, "/"))).text()).toContain("<h1>Public</h1>");
+      expect((await fetch(url(3027, "/%2e%2e/secret.txt"))).status).toBe(404); // URL normalized, stays in the folder
+      expect((await fetch(url(3027, "/missing.txt"))).status).toBe(404);
     });
     test("FIXED: malformed %-escape -> 400 (was 500), hidden files refused", async () => {
-      expect((await fetch(url(3026, "/%E0%A4%A"))).status).toBe(400);
-      expect((await fetch(url(3026, "/.env"))).status).toBe(400);
-      expect((await fetch(url(3026, "/sub/.git/config"))).status).toBe(400);
+      expect((await fetch(url(3027, "/%E0%A4%A"))).status).toBe(400);
+      expect((await fetch(url(3027, "/.env"))).status).toBe(400);
+      expect((await fetch(url(3027, "/sub/.git/config"))).status).toBe(400);
     });
   });
 
-  describe("[27] stream", () => {
+  describe("[28] stream", () => {
     test("chunks arrive in order", async () => {
-      expect(await (await fetch(url(3027, "/stream"))).text()).toBe("하나\n둘\n셋\n끝\n");
+      expect(await (await fetch(url(3028, "/stream"))).text()).toBe("하나\n둘\n셋\n끝\n");
     });
   });
 
-  describe("[28] ws pub/sub", () => {
+  describe("[29] ws pub/sub", () => {
     test("a message reaches everyone in the room", async () => {
-      const ada = await wsOpen("ws://127.0.0.1:3028/ws?user=ada&room=test-room");
-      const bob = await wsOpen("ws://127.0.0.1:3028/ws?user=bob&room=test-room");
+      const ada = await wsOpen("ws://127.0.0.1:3029/ws?user=ada&room=test-room");
+      const bob = await wsOpen("ws://127.0.0.1:3029/ws?user=bob&room=test-room");
       await ada.waitFor((m) => m === "* bob joined");
       ada.ws.send("hi bob");
       expect(await bob.waitFor((m) => m === "ada: hi bob")).toBe("ada: hi bob");
@@ -7800,53 +8407,81 @@ async function defineSelfTests() {
     });
   });
 
-  describe("[29] crud", () => {
+  describe("[30] crud", () => {
     test("POST, PUT, PATCH, GET, DELETE", async () => {
-      const created = (await (await fetch(url(3029, "/api/items"), json({ name: "pen" }))).json()) as { id: string; qty: number };
+      const created = (await (await fetch(url(3030, "/api/items"), json({ name: "pen" }))).json()) as { id: string; qty: number };
       expect(created.qty).toBe(1);
-      const put = await fetch(url(3029, `/api/items/${created.id}`), { ...json({ name: "pencil", qty: 10 }), method: "PUT" });
+      const put = await fetch(url(3030, `/api/items/${created.id}`), { ...json({ name: "pencil", qty: 10 }), method: "PUT" });
       expect(((await put.json()) as { name: string }).name).toBe("pencil");
-      const patch = await fetch(url(3029, `/api/items/${created.id}`), { ...json({ qty: 3 }), method: "PATCH" });
+      const patch = await fetch(url(3030, `/api/items/${created.id}`), { ...json({ qty: 3 }), method: "PATCH" });
       expect(await patch.json()).toEqual({ id: created.id, name: "pencil", qty: 3 });
-      expect((await fetch(url(3029, `/api/items/${created.id}`), { method: "DELETE" })).status).toBe(204);
-      expect((await fetch(url(3029, `/api/items/${created.id}`))).status).toBe(404);
+      expect((await fetch(url(3030, `/api/items/${created.id}`), { method: "DELETE" })).status).toBe(204);
+      expect((await fetch(url(3030, `/api/items/${created.id}`))).status).toBe(404);
     });
     test("FIXED: invalid JSON -> 400 (was 500), qty type-checked", async () => {
-      expect((await fetch(url(3029, "/api/items"), { method: "POST", body: "{bad" })).status).toBe(400);
-      expect((await fetch(url(3029, "/api/items"), json({ name: "x", qty: "10" }))).status).toBe(400);
-      expect((await fetch(url(3029, "/api/items/1"), { ...json({ name: "notebook", qty: -1 }), method: "PUT" })).status).toBe(400);
-      expect((await fetch(url(3029, "/api/items/1"), { ...json({ name: "" }), method: "PATCH" })).status).toBe(400);
-      expect((await fetch(url(3029, "/api/items/1"), { method: "PATCH", body: "[]" })).status).toBe(400);
+      expect((await fetch(url(3030, "/api/items"), { method: "POST", body: "{bad" })).status).toBe(400);
+      expect((await fetch(url(3030, "/api/items"), json({ name: "x", qty: "10" }))).status).toBe(400);
+      expect((await fetch(url(3030, "/api/items/1"), { ...json({ name: "notebook", qty: -1 }), method: "PUT" })).status).toBe(400);
+      expect((await fetch(url(3030, "/api/items/1"), { ...json({ name: "" }), method: "PATCH" })).status).toBe(400);
+      expect((await fetch(url(3030, "/api/items/1"), { method: "PATCH", body: "[]" })).status).toBe(400);
     });
   });
 
-  describe("[30] sqlite", () => {
+  describe("[31] sqlite", () => {
     test("create, read, delete (row removed again)", async () => {
-      const res = await fetch(url(3030, "/api/posts"), json({ title: "t", content: "c" }));
+      const res = await fetch(url(3031, "/api/posts"), json({ title: "t", content: "c" }));
       expect(res.status).toBe(201);
       const { id } = (await res.json()) as { id: string };
-      expect(((await (await fetch(url(3030, `/api/posts/${id}`))).json()) as { title: string }).title).toBe("t");
-      expect((await fetch(url(3030, `/api/posts/${id}`), { method: "DELETE" })).status).toBe(204);
-      expect((await fetch(url(3030, `/api/posts/${id}`))).status).toBe(404);
+      expect(((await (await fetch(url(3031, `/api/posts/${id}`))).json()) as { title: string }).title).toBe("t");
+      expect((await fetch(url(3031, `/api/posts/${id}`), { method: "DELETE" })).status).toBe(204);
+      expect((await fetch(url(3031, `/api/posts/${id}`))).status).toBe(404);
     });
   });
 
-  describe("[31] metrics", () => {
+  describe("[32] SQLite 3.54 rules", () => {
+    const post = (path: string, body: unknown) => fetch(url(3032, path), json(body));
+    test("the raw ALTER TABLE ... rowid is refused exactly when SQLite is 3.54+", async () => {
+      const r = (await (await fetch(url(3032))).json()) as { rules354: boolean; rawAlterAddRowid: { refused: boolean } };
+      expect(r.rawAlterAddRowid.refused).toBe(r.rules354);
+    });
+    test("the API refuses reserved names on every version", async () => {
+      for (const name of ["rowid", "OID", "_rowid_"]) expect((await post("/columns", { name })).status).toBe(422);
+      expect((await post("/columns", { name: "bad name" })).status).toBe(422);
+      const name = `c_${crypto.randomUUID().slice(0, 8)}`;
+      expect((await post("/columns", { name })).status).toBe(201);
+      expect((await post("/columns", { name })).status).toBe(409);
+    });
+    test("the authorizer allows reports and blocks everything else", async () => {
+      const ok = (await (await post("/report", { sql: "SELECT name, upper(name) AS shout FROM products ORDER BY id" })).json()) as { rows: { shout: string }[] };
+      expect(ok.rows.map((r) => r.shout)).toEqual(["APPLE", "BREAD", "CHEESE"]);
+      expect((await post("/report", { sql: "SELECT * FROM users" })).status).toBe(403); // table not allowed
+      expect((await post("/report", { sql: "DELETE FROM products" })).status).toBe(403); // not a SELECT
+      expect((await post("/report", { sql: "SELECT random()" })).status).toBe(403); // function not allowed
+      expect((await post("/report", { sql: "SELEC oops" })).status).toBe(400); // plain syntax error
+    });
+    test("functions in DEFAULT reach the authorizer only on 3.54+", async () => {
+      const a = (await (await fetch(url(3032, "/authorizer"))).json()) as { rules354: boolean; functionsAsked: string[]; insert: string };
+      expect(a.functionsAsked.includes("datetime")).toBe(a.rules354);
+      expect(a.insert === "ok").toBe(!a.rules354);
+    });
+  });
+
+  describe("[33] metrics", () => {
     test("requestIP and live counters", async () => {
-      const who = (await (await fetch(url(3031, "/whoami"))).json()) as { ip: string };
+      const who = (await (await fetch(url(3033, "/whoami"))).json()) as { ip: string };
       expect(who.ip).toContain("127.0.0.1");
-      const m = (await (await fetch(url(3031, "/metrics"))).json()) as { port: number; pendingRequests: number };
-      expect(m.port).toBe(3031);
+      const m = (await (await fetch(url(3033, "/metrics"))).json()) as { port: number; pendingRequests: number };
+      expect(m.port).toBe(3033);
       expect(m.pendingRequests).toBeGreaterThanOrEqual(1); // this very request
     });
   });
 
-  describe("[32] rate limit", () => {
+  describe("[34] rate limit", () => {
     test("5 allowed, then 429 with Retry-After", async () => {
       const codes: number[] = [];
       let last: Response | undefined;
       for (let i = 0; i < 7; i++) {
-        last = await fetch(url(3032));
+        last = await fetch(url(3034));
         codes.push(last.status);
       }
       expect(codes).toEqual([200, 200, 200, 200, 200, 429, 429]);
@@ -7854,37 +8489,37 @@ async function defineSelfTests() {
     });
   });
 
-  describe("[33] graceful", () => {
+  describe("[35] graceful", () => {
     test("/slow completes", async () => {
-      expect(((await (await fetch(url(3033, "/slow"))).json()) as { done: boolean }).done).toBe(true);
+      expect(((await (await fetch(url(3035, "/slow"))).json()) as { done: boolean }).done).toBe(true);
     });
   });
 
-  describe("[34] range", () => {
+  describe("[36] range", () => {
     test("206 for valid ranges, 416 for invalid", async () => {
-      const a = await fetch(url(3034, "/file"), { headers: { Range: "bytes=0-11" } });
+      const a = await fetch(url(3036, "/file"), { headers: { Range: "bytes=0-11" } });
       expect(a.status).toBe(206);
       expect(await a.text()).toBe("Hello Range!");
       expect(a.headers.get("content-range")).toMatch(/^bytes 0-11\/\d+$/);
-      const tail = await fetch(url(3034, "/file"), { headers: { Range: "bytes=-4" } });
+      const tail = await fetch(url(3036, "/file"), { headers: { Range: "bytes=-4" } });
       expect(await tail.text()).toBe("nd.\n"); // the file ends with a newline
-      expect((await fetch(url(3034, "/file"), { headers: { Range: "bytes=9999-" } })).status).toBe(416);
+      expect((await fetch(url(3036, "/file"), { headers: { Range: "bytes=9999-" } })).status).toBe(416);
     });
   });
 
-  describe("[35] session", () => {
+  describe("[37] session", () => {
     test("login, me, logout, me = 401", async () => {
-      const login = await fetch(url(3035, "/login"), json({ user: "ada" }));
+      const login = await fetch(url(3037, "/login"), json({ user: "ada" }));
       const jar = cookieHeader(login);
       expect(jar.sid).toMatch(/^[0-9a-f-]{36}$/);
-      expect(((await (await fetch(url(3035, "/me"), { headers: { Cookie: cookieString(jar) } })).json()) as { user: string }).user).toBe("ada");
-      await fetch(url(3035, "/logout"), { method: "POST", headers: { Cookie: cookieString(jar) } });
-      expect((await fetch(url(3035, "/me"), { headers: { Cookie: cookieString(jar) } })).status).toBe(401);
+      expect(((await (await fetch(url(3037, "/me"), { headers: { Cookie: cookieString(jar) } })).json()) as { user: string }).user).toBe("ada");
+      await fetch(url(3037, "/logout"), { method: "POST", headers: { Cookie: cookieString(jar) } });
+      expect((await fetch(url(3037, "/me"), { headers: { Cookie: cookieString(jar) } })).status).toBe(401);
     });
   });
 
-  describe("[36] validation", () => {
-    const post = (body: RequestInit["body"], type = "application/json") => fetch(url(3036, "/api/signup"), { method: "POST", headers: { "Content-Type": type }, body });
+  describe("[38] validation", () => {
+    const post = (body: RequestInit["body"], type = "application/json") => fetch(url(3038, "/api/signup"), { method: "POST", headers: { "Content-Type": type }, body });
     test("415, 400, 413, 422 with every field, 201", async () => {
       expect((await post("{}", "text/plain")).status).toBe(415);
       expect((await post("{bad")).status).toBe(400);
@@ -7899,54 +8534,54 @@ async function defineSelfTests() {
     });
   });
 
-  describe("[37] REST paging + If-Match", () => {
+  describe("[39] REST paging + If-Match", () => {
     test("cursor pages", async () => {
       const ids: number[] = [];
       let cursor: number | null = 0;
       let pages = 0;
       while (cursor !== null) {
-        const r = (await (await fetch(url(3037, `/api/notes?limit=2&cursor=${cursor}`))).json()) as { items: { id: number }[]; nextCursor: number | null };
+        const r = (await (await fetch(url(3039, `/api/notes?limit=2&cursor=${cursor}`))).json()) as { items: { id: number }[]; nextCursor: number | null };
         ids.push(...r.items.map((n) => n.id));
         cursor = r.nextCursor;
         pages++;
       }
       expect(ids.slice(0, 5)).toEqual([1, 2, 3, 4, 5]);
       expect(pages).toBeGreaterThanOrEqual(3);
-      const odd = (await (await fetch(url(3037, "/api/notes?tag=odd"))).json()) as { items: { id: number }[] };
+      const odd = (await (await fetch(url(3039, "/api/notes?tag=odd"))).json()) as { items: { id: number }[] };
       expect(odd.items.map((n) => n.id).slice(0, 3)).toEqual([1, 3, 5]);
     });
     test("Location on create, 412 on a stale version, delete", async () => {
-      const res = await fetch(url(3037, "/api/notes"), json({ text: "t" }));
+      const res = await fetch(url(3039, "/api/notes"), json({ text: "t" }));
       expect(res.status).toBe(201);
       const loc = res.headers.get("location")!;
       const etag = res.headers.get("etag")!;
-      const patch = (tag: string) => fetch(url(3037, loc), { method: "PATCH", headers: { "Content-Type": "application/json", "If-Match": tag }, body: JSON.stringify({ text: "edited" }) });
+      const patch = (tag: string) => fetch(url(3039, loc), { method: "PATCH", headers: { "Content-Type": "application/json", "If-Match": tag }, body: JSON.stringify({ text: "edited" }) });
       const first = await patch(etag);
       expect(first.status).toBe(200);
       expect(first.headers.get("etag")).toBe('"2"');
       expect((await patch(etag)).status).toBe(412);
-      expect((await fetch(url(3037, loc), { method: "DELETE" })).status).toBe(204);
-      expect((await fetch(url(3037, "/api/notes/abc"))).status).toBe(400);
+      expect((await fetch(url(3039, loc), { method: "DELETE" })).status).toBe(204);
+      expect((await fetch(url(3039, "/api/notes/abc"))).status).toBe(400);
     });
   });
 
-  describe("[38] ETag / 304", () => {
+  describe("[40] ETag / 304", () => {
     test("If-None-Match and If-Modified-Since", async () => {
-      const r = await fetch(url(3038, "/report"));
+      const r = await fetch(url(3040, "/report"));
       const etag = r.headers.get("etag")!;
-      expect((await fetch(url(3038, "/report"), { headers: { "If-None-Match": etag } })).status).toBe(304);
-      expect((await fetch(url(3038, "/report"), { headers: { "If-None-Match": `W/${etag}, "other"` } })).status).toBe(304);
-      expect((await fetch(url(3038, "/report"), { headers: { "If-Modified-Since": r.headers.get("last-modified")! } })).status).toBe(304);
-      await fetch(url(3038, "/report/bump"), { method: "POST" });
-      const after = await fetch(url(3038, "/report"), { headers: { "If-None-Match": etag } });
+      expect((await fetch(url(3040, "/report"), { headers: { "If-None-Match": etag } })).status).toBe(304);
+      expect((await fetch(url(3040, "/report"), { headers: { "If-None-Match": `W/${etag}, "other"` } })).status).toBe(304);
+      expect((await fetch(url(3040, "/report"), { headers: { "If-Modified-Since": r.headers.get("last-modified")! } })).status).toBe(304);
+      await fetch(url(3040, "/report/bump"), { method: "POST" });
+      const after = await fetch(url(3040, "/report"), { headers: { "If-None-Match": etag } });
       expect(after.status).toBe(200);
       expect(after.headers.get("etag")).not.toBe(etag);
     });
   });
 
-  describe("[39] NDJSON", () => {
+  describe("[41] NDJSON", () => {
     test("2000 lines, each a JSON object", async () => {
-      const res = await fetch(url(3039, "/export.ndjson"));
+      const res = await fetch(url(3041, "/export.ndjson"));
       expect(res.headers.get("content-type")).toContain("application/x-ndjson");
       const rows = JSONL.parse(await res.text()) as { id: number }[];
       expect(rows.length).toBe(2000);
@@ -7954,28 +8589,28 @@ async function defineSelfTests() {
     });
   });
 
-  describe("[40] slow & flaky", () => {
+  describe("[42] slow & flaky", () => {
     test("server notices an aborted client", async () => {
-      const before = ((await (await fetch(url(3040, "/stats"))).json()) as { aborted: number }).aborted;
-      await fetch(url(3040, "/slow?ms=3000"), { signal: AbortSignal.timeout(100) }).catch(() => {});
+      const before = ((await (await fetch(url(3042, "/stats"))).json()) as { aborted: number }).aborted;
+      await fetch(url(3042, "/slow?ms=3000"), { signal: AbortSignal.timeout(100) }).catch(() => {});
       await Bun.sleep(100);
-      expect(((await (await fetch(url(3040, "/stats"))).json()) as { aborted: number }).aborted).toBe(before + 1);
+      expect(((await (await fetch(url(3042, "/stats"))).json()) as { aborted: number }).aborted).toBe(before + 1);
     });
     test("flaky fails twice, then works", async () => {
       const key = `t-${Date.now()}`;
       const codes = [];
-      for (let i = 0; i < 3; i++) codes.push((await fetch(url(3040, `/flaky?key=${key}&fail=2`))).status);
+      for (let i = 0; i < 3; i++) codes.push((await fetch(url(3042, `/flaky?key=${key}&fail=2`))).status);
       expect(codes).toEqual([503, 503, 200]);
     });
   });
 
-  describe("[41] CSRF", () => {
+  describe("[43] CSRF", () => {
     test("token from the form is required and bound to the session", async () => {
-      const form = await fetch(url(3041, "/form"));
+      const form = await fetch(url(3043, "/form"));
       const jar = cookieHeader(form);
       const token = /name="csrf" value="([^"]+)"/.exec(await form.text())![1]!;
       const send = (t: string, cookie = cookieString(jar), origin?: string) =>
-        fetch(url(3041, "/transfer"), {
+        fetch(url(3043, "/transfer"), {
           method: "POST",
           headers: { Cookie: cookie, ...(origin ? { Origin: origin } : {}) },
           body: new URLSearchParams({ amount: "10", csrf: t }),
@@ -7984,19 +8619,19 @@ async function defineSelfTests() {
       expect((await send("")).status).toBe(403);
       expect((await send("garbage")).status).toBe(403);
       expect((await send(token, cookieString(jar), "https://evil.example")).status).toBe(403);
-      const other = cookieHeader(await fetch(url(3041, "/form")));
+      const other = cookieHeader(await fetch(url(3043, "/form")));
       expect((await send(token, cookieString(other))).status).toBe(403); // token of another session
     });
   });
 
-  describe("[42] HTMLRewriter", () => {
+  describe("[44] HTMLRewriter", () => {
     test("rewrite and extract", async () => {
-      const html = await (await fetch(url(3042, "/rewritten"))).text();
+      const html = await (await fetch(url(3044, "/rewritten"))).text();
       expect(html).not.toContain("<script>");
       expect(html).toContain('<a href="https://bun.com" target="_blank" rel="noopener noreferrer">');
       expect(html).toContain('src="https://example.com/x.png"');
       expect(html).toContain('<p class="banner">');
-      expect(await (await fetch(url(3042, "/extract"))).json()).toEqual({
+      expect(await (await fetch(url(3044, "/extract"))).json()).toEqual({
         title: "Rewriter demo",
         headings: ["Guide", "Install", "Run"],
         links: ["https://bun.com", "/local"],
@@ -8004,163 +8639,163 @@ async function defineSelfTests() {
     });
   });
 
-  describe("[43] Bun.cron", () => {
+  describe("[45] Bun.cron", () => {
     test("status, manual run, next times, invalid expression", async () => {
-      const s = (await (await fetch(url(3043, "/status"))).json()) as { schedule: string; runs: number };
+      const s = (await (await fetch(url(3045, "/status"))).json()) as { schedule: string; runs: number };
       expect(s.schedule).toBe("* * * * *");
-      const r = (await (await fetch(url(3043, "/run-now"), { method: "POST" })).json()) as { runs: number };
+      const r = (await (await fetch(url(3045, "/run-now"), { method: "POST" })).json()) as { runs: number };
       expect(r.runs).toBe(s.runs + 1);
-      const n = (await (await fetch(url(3043, `/next?expr=${encodeURIComponent("0 9 * * MON-FRI")}&count=3&tz=Asia/Seoul`))).json()) as { next: string[] };
+      const n = (await (await fetch(url(3045, `/next?expr=${encodeURIComponent("0 9 * * MON-FRI")}&count=3&tz=Asia/Seoul`))).json()) as { next: string[] };
       expect(n.next.length).toBe(3);
       for (const t of n.next) expect(new Date(t).getUTCHours()).toBe(0); // 09:00 in Seoul = 00:00 UTC
-      expect((await fetch(url(3043, "/next?expr=bad"))).status).toBe(400);
+      expect((await fetch(url(3045, "/next?expr=bad"))).status).toBe(400);
     });
   });
 
-  describe("[44] shell & spawn", () => {
+  describe("[46] shell & spawn", () => {
     test("interpolation is not shell injection", async () => {
-      const r = (await (await fetch(url(3044, `/echo?text=${encodeURIComponent("; rm -rf / $(whoami)")}`))).json()) as { shellOutput: string };
+      const r = (await (await fetch(url(3046, `/echo?text=${encodeURIComponent("; rm -rf / $(whoami)")}`))).json()) as { shellOutput: string };
       expect(r.shellOutput).toBe("; rm -rf / $(whoami)");
-      expect(((await (await fetch(url(3044, "/bun-version"))).json()) as { stdout: string }).stdout).toBe(Bun.version);
-      expect(((await (await fetch(url(3044, "/failing"))).json()) as { exitCode: number }).exitCode).not.toBe(0);
-      expect((await fetch(url(3044, "/which?cmd=a;b"))).status).toBe(400);
+      expect(((await (await fetch(url(3046, "/bun-version"))).json()) as { stdout: string }).stdout).toBe(Bun.version);
+      expect(((await (await fetch(url(3046, "/failing"))).json()) as { exitCode: number }).exitCode).not.toBe(0);
+      expect((await fetch(url(3046, "/which?cmd=a;b"))).status).toBe(400);
     });
   });
 
-  describe("[45] ★ bun test", () => {
+  describe("[47] ★ bun test", () => {
     test("the demo suite passes; coverage table is printed", async () => {
-      const r = (await (await fetch(url(3045, "/run?coverage=1"))).json()) as { exitCode: number; pass: number; fail: number; todo: number; output: string[] };
+      const r = (await (await fetch(url(3047, "/run?coverage=1"))).json()) as { exitCode: number; pass: number; fail: number; todo: number; output: string[] };
       expect(r).toMatchObject({ exitCode: 0, pass: 12, fail: 0, todo: 1 });
       expect(r.output.join("\n")).toContain("% Lines");
     }, 30_000);
     test("a failing test exits 1 and shows a diff", async () => {
-      const r = (await (await fetch(url(3045, "/run-failing"))).json()) as { exitCode: number; fail: number; output: string[] };
+      const r = (await (await fetch(url(3047, "/run-failing"))).json()) as { exitCode: number; fail: number; output: string[] };
       expect(r.exitCode).toBe(1);
       expect(r.fail).toBe(1);
       expect(r.output.join("\n")).toContain('"status": 201');
     }, 30_000);
   });
 
-  describe("[46] toolchain", () => {
+  describe("[48] toolchain", () => {
     test("bun run: script, shell script with npm_package_name, direct file", async () => {
-      const r = (await (await fetch(url(3046, "/run"))).json()) as Record<string, { exitCode: number; stdout: string[] }>;
+      const r = (await (await fetch(url(3048, "/run"))).json()) as Record<string, { exitCode: number; stdout: string[] }>;
       expect(r["bun run hello"]!.stdout).toEqual(["hello from bun run, 2 + 3 = 5"]);
       expect(r["bun run greet"]!.stdout).toEqual(["hello from toolchain-demo"]);
       expect(r["bun ./src/hello.ts"]!.exitCode).toBe(0);
     }, 30_000);
     test("bun install, bun build", async () => {
-      const i = (await (await fetch(url(3046, "/install"))).json()) as { exitCode: number };
+      const i = (await (await fetch(url(3048, "/install"))).json()) as { exitCode: number };
       expect(i.exitCode).toBe(0);
-      const b = (await (await fetch(url(3046, "/build"))).json()) as { exitCode: number; bundleBytes: number; bundleRuns: string[] };
+      const b = (await (await fetch(url(3048, "/build"))).json()) as { exitCode: number; bundleBytes: number; bundleRuns: string[] };
       expect(b.exitCode).toBe(0);
       expect(b.bundleBytes).toBeGreaterThan(0);
       expect(b.bundleRuns).toEqual(["hello from bun run, 2 + 3 = 5"]);
     }, 30_000);
     test("bun check: 0 for good code, 1 + TS2322 for bad code", async () => {
-      const r = (await (await fetch(url(3046, "/check"))).json()) as { good: { exitCode: number }; bad: { exitCode: number; code: string } };
+      const r = (await (await fetch(url(3048, "/check"))).json()) as { good: { exitCode: number }; bad: { exitCode: number; code: string } };
       expect(r.good.exitCode).toBe(0);
       expect(r.bad).toMatchObject({ exitCode: 1, code: "TS2322" });
     }, 30_000);
     test("bun fmt: --check exits 1, stdin formatting", async () => {
-      const r = (await (await fetch(url(3046, "/fmt"))).json()) as { check: { exitCode: number }; stdin: { exitCode: number; after: string } };
+      const r = (await (await fetch(url(3048, "/fmt"))).json()) as { check: { exitCode: number }; stdin: { exitCode: number; after: string } };
       expect(r.check.exitCode).toBe(1);
       expect(r.stdin.after).toBe("const point = { x: 1, y: 2 };\nexport { point };\n");
     }, 30_000);
   });
 
-  describe("[47] ★ WebSockets", () => {
+  describe("[49] ★ WebSockets", () => {
     test("Bun client with subprotocol: publish reaches the other client, not the sender", async () => {
-      const r = (await (await fetch(url(3047, "/client-demo"))).json()) as { protocol: string; bobReceived: string; adaReceived: string[] };
+      const r = (await (await fetch(url(3049, "/client-demo"))).json()) as { protocol: string; bobReceived: string; adaReceived: string[] };
       expect(r.protocol).toBe("chat.v1");
       expect(r.bobReceived).toBe("hi bob");
       expect(r.adaReceived).toContain("ack");
       expect(r.adaReceived).not.toContain("chat"); // publishToSelf: false
     });
     test("426 without upgrade, 400 for bad room or unsupported protocol", async () => {
-      const plain = await fetch(url(3047, "/ws?room=lobby&name=x"));
+      const plain = await fetch(url(3049, "/ws?room=lobby&name=x"));
       expect(plain.status).toBe(426);
       expect(plain.headers.get("upgrade")).toBe("websocket");
-      expect((await fetch(url(3047, "/ws?room=BAD!&name=x"))).status).toBe(400);
-      await expect(wsOpen("ws://127.0.0.1:3047/ws?room=lobby&name=x", { "Sec-WebSocket-Protocol": "chat.v9" })).rejects.toThrow();
+      expect((await fetch(url(3049, "/ws?room=BAD!&name=x"))).status).toBe(400);
+      await expect(wsOpen("ws://127.0.0.1:3049/ws?room=lobby&name=x", { "Sec-WebSocket-Protocol": "chat.v9" })).rejects.toThrow();
     });
     test("HTTP broadcast reaches a connected socket; member count", async () => {
       const room = `t-${crypto.randomUUID().slice(0, 8)}`;
-      const c = await wsOpen(`ws://127.0.0.1:3047/ws?room=${room}&name=tester`);
+      const c = await wsOpen(`ws://127.0.0.1:3049/ws?room=${room}&name=tester`);
       await c.waitFor((m) => m.includes('"welcome"'));
-      expect(await (await fetch(url(3047, `/rooms/${room}`))).json()).toEqual({ room, members: 1 });
-      await fetch(url(3047, `/rooms/${room}/broadcast`), { method: "POST", body: "deploy finished" });
+      expect(await (await fetch(url(3049, `/rooms/${room}`))).json()).toEqual({ room, members: 1 });
+      await fetch(url(3049, `/rooms/${room}/broadcast`), { method: "POST", body: "deploy finished" });
       expect(JSON.parse(await c.waitFor((m) => m.includes('"system"')))).toEqual({ type: "system", text: "deploy finished" });
       await c.close();
     });
   });
 
-  describe("[48] ★ Bun.sql", () => {
+  describe("[50] ★ Bun.sql", () => {
     test("filters, IN list, dynamic ORDER BY with allow-list", async () => {
-      const active = (await (await fetch(url(3048, "/users?active=true"))).json()) as { active: boolean }[];
+      const active = (await (await fetch(url(3050, "/users?active=true"))).json()) as { active: boolean }[];
       expect(active.length).toBeGreaterThan(0);
       expect(active.every((u) => u.active)).toBe(true);
-      const ids = (await (await fetch(url(3048, "/users/by-ids?ids=1,3"))).json()) as { id: number }[];
+      const ids = (await (await fetch(url(3050, "/users/by-ids?ids=1,3"))).json()) as { id: number }[];
       expect(ids.map((u) => u.id)).toEqual([1, 3]);
-      const sorted = (await (await fetch(url(3048, "/users/sorted?by=name&dir=desc"))).json()) as { name: string }[];
+      const sorted = (await (await fetch(url(3050, "/users/sorted?by=name&dir=desc"))).json()) as { name: string }[];
       expect(sorted.map((u) => u.name)).toEqual([...sorted.map((u) => u.name)].sort().reverse());
-      expect((await fetch(url(3048, "/users/sorted?by=password"))).status).toBe(400);
+      expect((await fetch(url(3050, "/users/sorted?by=password"))).status).toBe(400);
     });
     test("insert ignores extra fields (role stays 'user'), 409 on duplicate, bulk", async () => {
       const tag = crypto.randomUUID().slice(0, 8);
-      const res = await fetch(url(3048, "/users"), json({ name: "Eve", email: `eve-${tag}@example.com`, role: "admin" }));
+      const res = await fetch(url(3050, "/users"), json({ name: "Eve", email: `eve-${tag}@example.com`, role: "admin" }));
       expect(res.status).toBe(201);
       expect(((await res.json()) as { role: string }).role).toBe("user");
-      expect((await fetch(url(3048, "/users"), json({ name: "Eve", email: `eve-${tag}@example.com` }))).status).toBe(409);
-      const bulk = await fetch(url(3048, "/users/bulk"), json([{ name: "F", email: `f-${tag}@x.io` }, { name: "G", email: `g-${tag}@x.io` }]));
+      expect((await fetch(url(3050, "/users"), json({ name: "Eve", email: `eve-${tag}@example.com` }))).status).toBe(409);
+      const bulk = await fetch(url(3050, "/users/bulk"), json([{ name: "F", email: `f-${tag}@x.io` }, { name: "G", email: `g-${tag}@x.io` }]));
       expect(await bulk.json()).toEqual({ inserted: 2 });
     });
     test("transaction rolls back as a whole; pipelined queries", async () => {
-      expect(await (await fetch(url(3048, "/tx-demo"), { method: "POST" })).json()).toMatchObject({ rolledBack: true, error: "unique violation" });
-      const p = (await (await fetch(url(3048, "/pipelining"))).json()) as { users: number; firstAsArray: unknown[] };
+      expect(await (await fetch(url(3050, "/tx-demo"), { method: "POST" })).json()).toMatchObject({ rolledBack: true, error: "unique violation" });
+      const p = (await (await fetch(url(3050, "/pipelining"))).json()) as { users: number; firstAsArray: unknown[] };
       expect(p.users).toBeGreaterThan(0);
       expect(p.firstAsArray).toEqual([1, "Alice"]);
     });
   });
 
-  describe("[49] ★ Bun.redis", () => {
+  describe("[51] ★ Bun.redis", () => {
     test("INCR counter and cache-aside with TTL", async () => {
-      const a = ((await (await fetch(url(3049, "/hits"))).json()) as { hits: number }).hits;
-      const b = ((await (await fetch(url(3049, "/hits"))).json()) as { hits: number }).hits;
+      const a = ((await (await fetch(url(3051, "/hits"))).json()) as { hits: number }).hits;
+      const b = ((await (await fetch(url(3051, "/hits"))).json()) as { hits: number }).hits;
       expect(b).toBe(a + 1);
       const n = 1000 + Math.floor(Math.random() * 1000);
-      expect(await (await fetch(url(3049, `/square?n=${n}`))).json()).toMatchObject({ square: n * n, cached: false });
-      const hit = (await (await fetch(url(3049, `/square?n=${n}`))).json()) as { cached: boolean; ttl: number };
+      expect(await (await fetch(url(3051, `/square?n=${n}`))).json()).toMatchObject({ square: n * n, cached: false });
+      const hit = (await (await fetch(url(3051, `/square?n=${n}`))).json()) as { cached: boolean; ttl: number };
       expect(hit.cached).toBe(true);
       expect(hit.ttl).toBeGreaterThan(0);
     });
     test("hash + expire, pub/sub through a duplicate() connection, pipelining", async () => {
-      await fetch(url(3049, "/profile?name=Alice&plan=pro"), { method: "POST" });
-      expect(await (await fetch(url(3049, "/profile"))).json()).toMatchObject({ name: "Alice", plan: "pro" });
+      await fetch(url(3051, "/profile?name=Alice&plan=pro"), { method: "POST" });
+      expect(await (await fetch(url(3051, "/profile"))).json()).toMatchObject({ name: "Alice", plan: "pro" });
       const msg = `m-${crypto.randomUUID().slice(0, 8)}`;
-      expect(await (await fetch(url(3049, `/publish?msg=${msg}`), { method: "POST" })).json()).toEqual({ receivers: 1 });
+      expect(await (await fetch(url(3051, `/publish?msg=${msg}`), { method: "POST" })).json()).toEqual({ receivers: 1 });
       await Bun.sleep(50);
-      const events = (await (await fetch(url(3049, "/events"))).json()) as { message: string }[];
+      const events = (await (await fetch(url(3051, "/events"))).json()) as { message: string }[];
       expect(events.map((e) => e.message)).toContain(msg);
-      expect(((await (await fetch(url(3049, "/pipelining"))).json()) as { commands: number }).commands).toBe(20);
+      expect(((await (await fetch(url(3051, "/pipelining"))).json()) as { commands: number }).commands).toBe(20);
     });
   });
 
-  describe("[50] ★ Bun.s3", () => {
+  describe("[52] ★ Bun.s3", () => {
     test("presign works offline; download redirects; writes need a bucket", async () => {
-      const p = (await (await fetch(url(3050, "/presign?key=uploads/avatar.png&method=PUT&type=image/png&expires=60"))).json()) as { url: string };
+      const p = (await (await fetch(url(3052, "/presign?key=uploads/avatar.png&method=PUT&type=image/png&expires=60"))).json()) as { url: string };
       expect(p.url).toContain("X-Amz-Signature=");
       expect(p.url).toContain("X-Amz-Expires=60");
-      const dl = await fetch(url(3050, "/download/uploads/avatar.png"), { redirect: "manual" });
+      const dl = await fetch(url(3052, "/download/uploads/avatar.png"), { redirect: "manual" });
       expect(dl.status).toBe(302);
       expect(dl.headers.get("location")).toContain("/uploads/avatar.png?");
-      expect((await fetch(url(3050, "/presign?key=../etc/passwd"))).status).toBe(400);
-      expect((await fetch(url(3050, "/objects/uploads/x.txt"), { method: "PUT", body: "hi" })).status).toBe(503);
+      expect((await fetch(url(3052, "/presign?key=../etc/passwd"))).status).toBe(400);
+      expect((await fetch(url(3052, "/objects/uploads/x.txt"), { method: "PUT", body: "hi" })).status).toBe(503);
     });
   });
 
-  describe("[51] ★ Bun Shell scripting", () => {
+  describe("[53] ★ Bun Shell scripting", () => {
     test("every step, including the double-redirect pitfall", async () => {
-      const r = (await (await fetch(url(3051, "/script"))).json()) as Record<string, any>;
+      const r = (await (await fetch(url(3053, "/script"))).json()) as Record<string, any>;
       expect(r.glob).toEqual(["a.txt", "b.txt"]);
       expect(r.json).toEqual({ ok: true, n: 3 });
       expect(r.lines).toEqual(["alpha", "beta", ""]);
@@ -8176,9 +8811,9 @@ async function defineSelfTests() {
     }, 15_000);
   });
 
-  describe("[52] fetch extras", () => {
+  describe("[54] fetch extras", () => {
     test("unix socket, proxy, TLS with a CA, decompress: false", async () => {
-      const r = (await (await fetch(url(3052, "/report"))).json()) as Record<string, any>;
+      const r = (await (await fetch(url(3054, "/report"))).json()) as Record<string, any>;
       expect(r.unixSocket).toEqual({ status: 200, body: "OK" });
       expect(r.proxy).toEqual({ status: 200, proxySaw: ["GET http://127.0.0.1:3003/"] });
       expect(r.tlsWithCa).toEqual({ status: 200, protocol: "https" });
@@ -8187,19 +8822,41 @@ async function defineSelfTests() {
     });
   });
 
-  describe("[53] Bun.secrets", () => {
+  describe("[55] Bun.secrets", () => {
     test("disabled unless BUN_DEMO_SECRETS=1 (never touches the keychain in tests)", async () => {
-      expect(await (await fetch(url(3053))).json()).toMatchObject({ enabled: false });
-      expect((await fetch(url(3053, "/secret"))).status).toBe(503);
+      expect(await (await fetch(url(3055))).json()).toMatchObject({ enabled: false });
+      expect((await fetch(url(3055, "/secret"))).status).toBe(503);
     });
   });
 
-  describe("[54] reload", () => {
+  describe("[56] RSA signatures (1.4.5 hashes)", () => {
+    test("every listed hash signs and verifies", async () => {
+      const r = (await (await fetch(url(3056, "/algorithms"))).json()) as { results: { alg: string; ok: boolean }[] };
+      expect(r.results.filter((x) => !x.ok).map((x) => x.alg)).toEqual([]);
+    });
+    test("sign + verify round trip; tampering fails; PKCS#1 is deterministic, PSS is not", async () => {
+      const sign = async (q: string) => ((await (await fetch(url(3056, `/sign?${q}`), { method: "POST", body: "hello" })).json()) as { signature: string }).signature;
+      const verify = async (body: Record<string, unknown>) => ((await (await fetch(url(3056, "/verify"), json(body))).json()) as { valid: boolean }).valid;
+      const s1 = await sign("alg=sha3-256");
+      expect(await sign("alg=sha3-256")).toBe(s1);
+      expect(await verify({ alg: "sha3-256", data: "hello", signature: s1 })).toBe(true);
+      expect(await verify({ alg: "sha3-256", data: "hellO", signature: s1 })).toBe(false);
+      expect(await verify({ alg: "sha256", data: "hello", signature: s1 })).toBe(false);
+      const p1 = await sign("alg=ripemd160&pss=1");
+      const p2 = await sign("alg=ripemd160&pss=1");
+      expect(p1).not.toBe(p2);
+      expect(await verify({ alg: "ripemd160", data: "hello", signature: p2, pss: true })).toBe(true);
+      expect((await fetch(url(3056, "/sign?alg=md5"), { method: "POST", body: "x" })).status).toBe(422);
+      expect(await (await fetch(url(3056, "/public-key"))).text()).toContain("BEGIN PUBLIC KEY");
+    });
+  });
+
+  describe("[57] reload", () => {
     test("version switches to 2.0.0 after ~3 s on the same port", async () => {
       let version = "";
       const until = Date.now() + 6000;
       while (Date.now() < until) {
-        version = ((await (await fetch(url(3054, "/api/version"))).json()) as { version: string }).version;
+        version = ((await (await fetch(url(3057, "/api/version"))).json()) as { version: string }).version;
         if (version === "2.0.0") break;
         await Bun.sleep(200);
       }
@@ -8207,30 +8864,30 @@ async function defineSelfTests() {
     }, 8000);
   });
 
-  describe("[55] unix socket", () => {
+  describe("[58] unix socket", () => {
     test("fetch over the socket file", async () => {
       const res = await fetch("http://localhost/", { unix: UNIX_SOCK });
       expect(((await res.json()) as { via: string }).via).toBe("unix");
     });
   });
 
-  describe("[56] proxy", () => {
+  describe("[59] proxy", () => {
     test("/local works offline", async () => {
-      expect(((await (await fetch(url(3056, "/local"))).json()) as { via: string }).via).toBe("local");
+      expect(((await (await fetch(url(3059, "/local"))).json()) as { via: string }).via).toBe("local");
     });
     test("/proxy/* answers 200 online or 502 offline", async () => {
-      const res = await fetch(url(3056, "/proxy/status/200"), { signal: AbortSignal.timeout(8000) }).catch(() => null);
+      const res = await fetch(url(3059, "/proxy/status/200"), { signal: AbortSignal.timeout(8000) }).catch(() => null);
       if (res) expect([200, 502]).toContain(res.status);
     }, 10_000);
   });
 
-  describe("[57] timeout", () => {
+  describe("[60] timeout", () => {
     test("/slow-ok (server.timeout(req, 0)) always completes", async () => {
-      const res = await fetch(url(3057, "/slow-ok"), { keepalive: false });
+      const res = await fetch(url(3060, "/slow-ok"), { keepalive: false });
       expect(await res.json()).toEqual({ ok: true, waitedMs: 3000, timeout: "disabled" });
     }, 8000);
-    test("/slow-default without server.timeout() either completes or is reset (timing-dependent, see the note in [57])", async () => {
-      const outcome = await fetch(url(3057, "/slow-default"), { keepalive: false }).then(
+    test("/slow-default without server.timeout() either completes or is reset (timing-dependent, see the note in [60])", async () => {
+      const outcome = await fetch(url(3060, "/slow-default"), { keepalive: false }).then(
         (r) => String(r.status),
         (e: { code?: string }) => e.code ?? "error",
       );
@@ -8238,38 +8895,57 @@ async function defineSelfTests() {
     }, 8000);
   });
 
-  describe("[58] route priority", () => {
+  describe("[61] route priority", () => {
     test("exact > param > wildcard > global", async () => {
-      expect(await (await fetch(url(3058, "/api/users/me"))).json()).toEqual({ user: "current" });
-      expect(await (await fetch(url(3058, "/api/users/42"))).json()).toEqual({ userId: "42" });
-      expect(((await (await fetch(url(3058, "/api/other"))).json()) as { catch: string }).catch).toBe("api");
-      const g = await fetch(url(3058, "/elsewhere"));
+      expect(await (await fetch(url(3061, "/api/users/me"))).json()).toEqual({ user: "current" });
+      expect(await (await fetch(url(3061, "/api/users/42"))).json()).toEqual({ userId: "42" });
+      expect(((await (await fetch(url(3061, "/api/other"))).json()) as { catch: string }).catch).toBe("api");
+      const g = await fetch(url(3061, "/elsewhere"));
       expect(g.status).toBe(404);
       expect(((await g.json()) as { catch: string }).catch).toBe("global");
     });
   });
 
-  describe("[59] tls / [60] http3", () => {
+  describe("[62] tls / [64] http3", () => {
     test("HTTPS with the self-signed certificate", async () => {
-      for (const port of [3059, 3060]) {
+      for (const port of [3062, 3064]) {
         const res = await fetch(`https://127.0.0.1:${port}/`, { tls: { rejectUnauthorized: false } });
         expect(((await res.json()) as { ok: boolean }).ok).toBe(true);
       }
     });
   });
 
-  describe("[61] html import", () => {
-    test("bundled page and API", async () => {
-      const page = await fetch(url(3061));
-      expect(page.headers.get("content-type")).toContain("text/html");
-      expect(await page.text()).toContain("<script");
-      expect(typeof ((await (await fetch(url(3061, "/api/time"))).json()) as { now: number }).now).toBe("number");
+  describe("[63] TLS certificate errors (1.4.5)", () => {
+    test("each failure has its own code", async () => {
+      const { cases } = (await (await fetch(url(3063, "/check"))).json()) as { cases: Record<string, { got: Record<string, unknown> }> };
+      const got = Object.values(cases).map((c) => c.got);
+      expect(got[0]).toMatchObject({ ok: false, code: "CERT_HAS_EXPIRED" });
+      expect(got[1]).toMatchObject({ ok: false, code: "CERT_HAS_EXPIRED" });
+      expect(got[2]).toMatchObject({ ok: false, code: "DEPTH_ZERO_SELF_SIGNED_CERT" });
+      expect(got[3]).toMatchObject({ ok: true, status: 200 });
+      expect(got[4]).toMatchObject({ ok: false, code: "ERR_TLS_CERT_ALTNAME_INVALID" });
+      expect(got[5]).toMatchObject({ ok: true, authorized: false, authorizationError: "CERT_HAS_EXPIRED" });
+    });
+    test("/certs reads both certificates with X509Certificate", async () => {
+      const c = (await (await fetch(url(3063, "/certs"))).json()) as Record<string, { expired: boolean; selfIssued: boolean; subjectAltName: string }>;
+      expect(c.expired).toMatchObject({ expired: true, selfIssued: true });
+      expect(c.devCert!.expired).toBe(false);
+      expect(c.devCert!.subjectAltName).toContain("127.0.0.1");
     });
   });
 
-  describe("[62] ws advanced", () => {
+  describe("[65] html import", () => {
+    test("bundled page and API", async () => {
+      const page = await fetch(url(3065));
+      expect(page.headers.get("content-type")).toContain("text/html");
+      expect(await page.text()).toContain("<script");
+      expect(typeof ((await (await fetch(url(3065, "/api/time"))).json()) as { now: number }).now).toBe("number");
+    });
+  });
+
+  describe("[66] ws advanced", () => {
     test("welcome + corked echo", async () => {
-      const c = await wsOpen("ws://127.0.0.1:3062/ws");
+      const c = await wsOpen("ws://127.0.0.1:3066/ws");
       await c.waitFor((m) => m.startsWith("welcome "));
       c.ws.send("x");
       expect(await c.waitFor((m) => m.startsWith("echo:"))).toBe("echo: x");
@@ -8277,62 +8953,62 @@ async function defineSelfTests() {
     });
   });
 
-  describe("[63] jwt", () => {
+  describe("[67] jwt", () => {
     test("valid token 200, tampered token 401", async () => {
-      const { token } = (await (await fetch(url(3063, "/login"), json({ sub: "ada" }))).json()) as { token: string };
-      const ok = await fetch(url(3063, "/secret"), { headers: { Authorization: `Bearer ${token}` } });
+      const { token } = (await (await fetch(url(3067, "/login"), json({ sub: "ada" }))).json()) as { token: string };
+      const ok = await fetch(url(3067, "/secret"), { headers: { Authorization: `Bearer ${token}` } });
       expect(((await ok.json()) as { payload: { sub: string } }).payload.sub).toBe("ada");
       const [h, , s] = token.split(".");
       const forged = `${h}.${Buffer.from(JSON.stringify({ sub: "admin", exp: 9e9 })).toString("base64url")}.${s}`;
-      expect((await fetch(url(3063, "/secret"), { headers: { Authorization: `Bearer ${forged}` } })).status).toBe(401);
+      expect((await fetch(url(3067, "/secret"), { headers: { Authorization: `Bearer ${forged}` } })).status).toBe(401);
     });
     test("FIXED: malformed tokens -> 401 (was 500)", async () => {
       for (const bad of ["a.b.c", "!!!.@@@.###", "x.y"]) {
-        expect((await fetch(url(3063, "/secret"), { headers: { Authorization: `Bearer ${bad}` } })).status).toBe(401);
+        expect((await fetch(url(3067, "/secret"), { headers: { Authorization: `Bearer ${bad}` } })).status).toBe(401);
       }
     });
   });
 
-  describe("[64] mini app", () => {
+  describe("[68] mini app", () => {
     test("list, create, read", async () => {
-      expect(((await (await fetch(url(3064, "/api/users"))).json()) as unknown[]).length).toBeGreaterThanOrEqual(1);
-      const u = (await (await fetch(url(3064, "/api/users"), json({ name: "lin" }))).json()) as { id: string };
-      expect(await (await fetch(url(3064, `/api/users/${u.id}`))).json()).toEqual({ id: u.id, name: "lin" });
+      expect(((await (await fetch(url(3068, "/api/users"))).json()) as unknown[]).length).toBeGreaterThanOrEqual(1);
+      const u = (await (await fetch(url(3068, "/api/users"), json({ name: "lin" }))).json()) as { id: string };
+      expect(await (await fetch(url(3068, `/api/users/${u.id}`))).json()).toEqual({ id: u.id, name: "lin" });
     });
   });
 
-  describe("[65] production", () => {
+  describe("[69] production", () => {
     test("health, login, me, notes list (read only)", async () => {
-      expect(await (await fetch(url(3065, "/health"))).json()).toEqual({ ok: true });
-      const jar = cookieHeader(await fetch(url(3065, "/api/login"), json({ user: "test-user" })));
-      expect(await (await fetch(url(3065, "/api/me"), { headers: { Cookie: cookieString(jar) } })).json()).toEqual({ user: "test-user" });
-      expect(Array.isArray(await (await fetch(url(3065, "/api/notes"), { headers: { Cookie: cookieString(jar) } })).json())).toBe(true);
-      expect((await fetch(url(3065, "/api/notes"))).status).toBe(401);
+      expect(await (await fetch(url(3069, "/health"))).json()).toEqual({ ok: true });
+      const jar = cookieHeader(await fetch(url(3069, "/api/login"), json({ user: "test-user" })));
+      expect(await (await fetch(url(3069, "/api/me"), { headers: { Cookie: cookieString(jar) } })).json()).toEqual({ user: "test-user" });
+      expect(Array.isArray(await (await fetch(url(3069, "/api/notes"), { headers: { Cookie: cookieString(jar) } })).json())).toBe(true);
+      expect((await fetch(url(3069, "/api/notes"))).status).toBe(401);
     });
     test("FIXED: WebSocket needs a session and uses the session's user name", async () => {
-      expect((await fetch(url(3065, "/ws?user=mallory"))).status).toBe(401); // checked before the upgrade
-      const jar = cookieHeader(await fetch(url(3065, "/api/login"), json({ user: "real-user" })));
-      expect((await fetch(url(3065, "/ws?room=Bad Room"), { headers: { Cookie: cookieString(jar) } })).status).toBe(400);
-      const c = await wsOpen("ws://127.0.0.1:3065/ws?room=test&user=mallory", { Cookie: cookieString(jar) });
+      expect((await fetch(url(3069, "/ws?user=mallory"))).status).toBe(401); // checked before the upgrade
+      const jar = cookieHeader(await fetch(url(3069, "/api/login"), json({ user: "real-user" })));
+      expect((await fetch(url(3069, "/ws?room=Bad Room"), { headers: { Cookie: cookieString(jar) } })).status).toBe(400);
+      const c = await wsOpen("ws://127.0.0.1:3069/ws?room=test&user=mallory", { Cookie: cookieString(jar) });
       expect(await c.waitFor((m) => m.includes("joined"))).toBe("* real-user joined");
       await c.close();
     });
   });
 
-  describe("[66] hardening", () => {
+  describe("[70] hardening", () => {
     test("small body ok, 20 KB body 413, errors are generic", async () => {
-      expect(((await (await fetch(url(3066, "/echo"), { method: "POST", body: "hi" })).json()) as { bytes: number }).bytes).toBe(2);
-      expect((await fetch(url(3066, "/echo"), { method: "POST", body: new Uint8Array(20 * 1024) })).status).toBe(413);
-      const boom = await fetch(url(3066, "/boom"));
+      expect(((await (await fetch(url(3070, "/echo"), { method: "POST", body: "hi" })).json()) as { bytes: number }).bytes).toBe(2);
+      expect((await fetch(url(3070, "/echo"), { method: "POST", body: new Uint8Array(20 * 1024) })).status).toBe(413);
+      const boom = await fetch(url(3070, "/boom"));
       expect(boom.status).toBe(500);
       expect(await boom.json()).toEqual({ error: "Internal Server Error" });
     });
   });
 
-  describe("[67] ws.publish vs server.publish", () => {
+  describe("[71] ws.publish vs server.publish", () => {
     test("ws.publish skips the sender", async () => {
-      const ada = await wsOpen("ws://127.0.0.1:3067/ws?user=ada");
-      const bob = await wsOpen("ws://127.0.0.1:3067/ws?user=bob");
+      const ada = await wsOpen("ws://127.0.0.1:3071/ws?user=ada");
+      const bob = await wsOpen("ws://127.0.0.1:3071/ws?user=bob");
       await ada.waitFor((m) => m.includes("bob joined"));
       ada.ws.send(JSON.stringify({ mode: "ws" }));
       await bob.waitFor((m) => m.startsWith("[ws.publish] ada"));
@@ -8346,25 +9022,25 @@ async function defineSelfTests() {
     });
   });
 
-  describe("[68] background jobs", () => {
+  describe("[72] background jobs", () => {
     test("202 + Location, polling until done, 422", async () => {
-      const res = await fetch(url(3068, "/jobs"), json({ rounds: 20_000 }));
+      const res = await fetch(url(3072, "/jobs"), json({ rounds: 20_000 }));
       expect(res.status).toBe(202);
       const loc = res.headers.get("location")!;
       let job = { status: "" } as { status: string; result?: string };
       for (let delay = 20; job.status !== "done"; delay = Math.min(delay * 2, 500)) {
-        job = (await (await fetch(url(3068, loc))).json()) as typeof job;
+        job = (await (await fetch(url(3072, loc))).json()) as typeof job;
         if (job.status !== "done") await Bun.sleep(delay);
       }
       expect(job.result).toMatch(/^[0-9a-f]{64}$/);
-      expect((await fetch(url(3068, "/jobs"), json({ rounds: -1 }))).status).toBe(422);
+      expect((await fetch(url(3072, "/jobs"), json({ rounds: -1 }))).status).toBe(422);
     });
   });
 
-  describe("[69] WebSocket RPC", () => {
+  describe("[73] WebSocket RPC", () => {
     test("ids, errors, binary, rooms, rate limit", async () => {
-      const a = await wsOpen("ws://127.0.0.1:3069/ws");
-      const b = await wsOpen("ws://127.0.0.1:3069/ws");
+      const a = await wsOpen("ws://127.0.0.1:3073/ws");
+      const b = await wsOpen("ws://127.0.0.1:3073/ws");
       const call = (c: typeof a, id: number, method: string, params = {}) => {
         c.ws.send(JSON.stringify({ id, method, params }));
         return c.waitFor((m) => (JSON.parse(m) as { id?: number }).id === id).then((m) => JSON.parse(m) as { ok: boolean; result?: unknown; error?: { status: number } });
@@ -8394,19 +9070,19 @@ async function defineSelfTests() {
     });
   });
 
-  describe("[70] image service", () => {
+  describe("[74] image service", () => {
     test("info, thumbnail, 415 for non-images", async () => {
       const png = makePng(320, 200);
-      const info = (await (await fetch(url(3070, "/image/info"), { method: "POST", body: png })).json()) as { width: number; format: string };
+      const info = (await (await fetch(url(3074, "/image/info"), { method: "POST", body: png })).json()) as { width: number; format: string };
       expect(info).toMatchObject({ width: 320, format: "png" });
-      const thumb = await (await fetch(url(3070, "/image/thumb?w=64"), { method: "POST", body: png })).bytes();
+      const thumb = await (await fetch(url(3074, "/image/thumb?w=64"), { method: "POST", body: png })).bytes();
       expect(await new Bun.Image(thumb).metadata()).toEqual({ width: 64, height: 40, format: "webp" });
-      expect((await fetch(url(3070, "/image/info"), { method: "POST", body: "not an image" })).status).toBe(415);
+      expect((await fetch(url(3074, "/image/info"), { method: "POST", body: "not an image" })).status).toBe(415);
     });
     test("strip removes EXIF and applies the orientation", async () => {
       const jpg = await jpegWithExif();
       expect(includes(jpg, "37.5665")).toBe(true);
-      const res = await fetch(url(3070, "/image/strip"), { method: "POST", body: jpg });
+      const res = await fetch(url(3074, "/image/strip"), { method: "POST", body: jpg });
       const out = await res.bytes();
       expect(res.headers.get("x-had-exif")).toBe("true");
       expect(res.headers.get("x-has-exif")).toBe("false");
@@ -8415,21 +9091,21 @@ async function defineSelfTests() {
     });
   });
 
-  describe("[71] one-folder vault", () => {
+  describe("[75] one-folder vault", () => {
     const n = Date.now().toString(36);
     test("log round trip with ETag", async () => {
-      const put = await fetch(url(3071, `/files/t-${n}.log`), { method: "PUT", body: "line 1\nline 2\n" });
+      const put = await fetch(url(3075, `/files/t-${n}.log`), { method: "PUT", body: "line 1\nline 2\n" });
       expect(put.status).toBe(201);
       const { sha256 } = (await put.json()) as { sha256: string };
-      const get = await fetch(url(3071, `/files/t-${n}.log`));
+      const get = await fetch(url(3075, `/files/t-${n}.log`));
       expect(get.headers.get("etag")).toBe(`"${sha256}"`);
       expect(get.headers.get("x-content-type-options")).toBe("nosniff");
       expect(await get.text()).toBe("line 1\nline 2\n");
-      expect((await fetch(url(3071, `/files/t-${n}.log`), { headers: { "If-None-Match": `"${sha256}"` } })).status).toBe(304);
-      expect((await fetch(url(3071, `/files/t-${n}.log`), { method: "DELETE" })).status).toBe(204);
+      expect((await fetch(url(3075, `/files/t-${n}.log`), { headers: { "If-None-Match": `"${sha256}"` } })).status).toBe(304);
+      expect((await fetch(url(3075, `/files/t-${n}.log`), { method: "DELETE" })).status).toBe(204);
     });
     test("refuses what breaks the rule", async () => {
-      const put = (name: string, body: RequestInit["body"]) => fetch(url(3071, `/files/${name}`), { method: "PUT", body });
+      const put = (name: string, body: RequestInit["body"]) => fetch(url(3075, `/files/${name}`), { method: "PUT", body });
       expect((await put("evil.sh", "x")).status).toBe(400);
       expect((await put("..%2Fx.log", "x")).status).toBe(400);
       expect((await put("fake.png", "x")).status).toBe(415);
@@ -8438,31 +9114,31 @@ async function defineSelfTests() {
     });
     test("images are re-encoded: a hidden payload is not stored", async () => {
       const poly = new Uint8Array(Bun.concatArrayBuffers([makePng(16, 16), new TextEncoder().encode("<script>x</script>")]));
-      const res = await fetch(url(3071, `/files/p-${n}.png`), { method: "PUT", body: poly });
+      const res = await fetch(url(3075, `/files/p-${n}.png`), { method: "PUT", body: poly });
       expect(((await res.json()) as { reencoded: boolean }).reencoded).toBe(true);
-      expect(includes(await (await fetch(url(3071, `/files/p-${n}.png`))).bytes(), "<script>")).toBe(false);
-      await fetch(url(3071, `/files/p-${n}.png`), { method: "DELETE" });
+      expect(includes(await (await fetch(url(3075, `/files/p-${n}.png`))).bytes(), "<script>")).toBe(false);
+      await fetch(url(3075, `/files/p-${n}.png`), { method: "DELETE" });
     });
   });
 
-  describe("[72] workers", () => {
+  describe("[76] workers", () => {
     test("worker and main thread compute the same hash", async () => {
       const [w, m] = await Promise.all([
-        fetch(url(3072, "/hash/worker?rounds=20000")).then((r) => r.json() as Promise<{ hash: string; thread: string }>),
-        fetch(url(3072, "/hash/main?rounds=20000")).then((r) => r.json() as Promise<{ hash: string }>),
+        fetch(url(3076, "/hash/worker?rounds=20000")).then((r) => r.json() as Promise<{ hash: string; thread: string }>),
+        fetch(url(3076, "/hash/main?rounds=20000")).then((r) => r.json() as Promise<{ hash: string }>),
       ]);
       expect(w.hash).toBe(m.hash);
       expect(w.thread).toBe("worker");
     });
   });
 
-  describe("[73] TCP / UDP", () => {
+  describe("[77] TCP / UDP", () => {
     test("TCP line protocol", async () => {
       let got = "";
       await new Promise<void>((resolve, reject) => {
         void Bun.connect({
           hostname: "127.0.0.1",
-          port: 3073,
+          port: 3077,
           socket: {
             open: (s) => void s.write("hello\nquit\n"),
             data: (_s, d) => void (got += d.toString()),
@@ -8476,59 +9152,59 @@ async function defineSelfTests() {
     test("UDP echo", async () => {
       const reply = await new Promise<string>(async (resolve) => {
         const s = await Bun.udpSocket({ socket: { data: (sock, buf) => { resolve(buf.toString()); sock.close(); } } });
-        s.send("ping", 3073, "127.0.0.1");
+        s.send("ping", 3077, "127.0.0.1");
       });
       expect(reply).toBe("echo:ping");
     });
   });
 
-  describe("[74] client patterns", () => {
+  describe("[78] client patterns", () => {
     test("every pattern in the report passes", async () => {
-      const r = (await (await fetch(url(3074, "/run"))).json()) as { ok: boolean; report: { name: string; ok: boolean; detail: unknown }[] };
+      const r = (await (await fetch(url(3078, "/run"))).json()) as { ok: boolean; report: { name: string; ok: boolean; detail: unknown }[] };
       const failed = r.report.filter((x) => !x.ok);
       expect(failed).toEqual([]);
       expect(r.report.map((x) => x.name)).toEqual(["parallel", "allSettled", "timeout", "abort", "retry", "paging", "ndjson", "sse", "wsRpc"]);
     }, 15_000);
   });
 
-  describe("[75] Bun.spawn IPC", () => {
+  describe("[79] Bun.spawn IPC", () => {
     test("child hashes over IPC, times out, and is restarted after a crash", async () => {
-      const h = (await (await fetch(url(3075, "/hash?text=hello"))).json()) as { hash: string; childPid: number; serverPid: number };
+      const h = (await (await fetch(url(3079, "/hash?text=hello"))).json()) as { hash: string; childPid: number; serverPid: number };
       expect(h.hash).toBe(new Bun.CryptoHasher("sha256").update("hello").digest("hex"));
       expect(h.childPid).not.toBe(h.serverPid);
-      expect((await fetch(url(3075, "/slow?ms=1500"))).status).toBe(504);
-      const c = (await (await fetch(url(3075, "/crash"), { method: "POST" })).json()) as { restarted: boolean; newPid: number };
+      expect((await fetch(url(3079, "/slow?ms=1500"))).status).toBe(504);
+      const c = (await (await fetch(url(3079, "/crash"), { method: "POST" })).json()) as { restarted: boolean; newPid: number };
       expect(c.restarted).toBe(true);
-      const after = (await (await fetch(url(3075, "/hash?text=hello"))).json()) as { childPid: number };
+      const after = (await (await fetch(url(3079, "/hash?text=hello"))).json()) as { childPid: number };
       expect(after.childPid).toBe(c.newPid);
     }, 15_000);
   });
 
-  describe("[76] ★ frontend", () => {
+  describe("[80] ★ frontend", () => {
     test("dev routes bundle both pages; JSX without React", async () => {
-      const page = await (await fetch(url(3076))).text();
+      const page = await (await fetch(url(3080))).text();
       expect(page).toContain("<title>Frontend ★</title>");
       const js = /src="([^"]+\.js)"/.exec(page)?.[1];
       expect(js).toBeDefined();
-      expect(await (await fetch(url(3076, js!))).text()).toContain("createElement");
-      expect(await (await fetch(url(3076, "/dashboard"))).text()).toContain("<title>Dashboard ★</title>");
-      expect(await (await fetch(url(3076, "/api/health"))).json()).toEqual({ ok: true });
+      expect(await (await fetch(url(3080, js!))).text()).toContain("createElement");
+      expect(await (await fetch(url(3080, "/dashboard"))).text()).toContain("<title>Dashboard ★</title>");
+      expect(await (await fetch(url(3080, "/api/health"))).json()).toEqual({ ok: true });
     });
     test("Bun.build in memory: one shared CSS file, served from /dist with cache headers", async () => {
-      const b = (await (await fetch(url(3076, "/build"))).json()) as { outputs: { path: string; kind: string }[] };
+      const b = (await (await fetch(url(3080, "/build"))).json()) as { outputs: { path: string; kind: string }[] };
       expect(b.outputs.filter((o) => o.path.endsWith(".css"))).toHaveLength(1);
       expect(b.outputs.map((o) => o.path)).toContain("./index.html");
-      const html = await fetch(url(3076, "/dist/index.html"));
+      const html = await fetch(url(3080, "/dist/index.html"));
       expect(html.headers.get("cache-control")).toBe("no-cache");
       const asset = /(chunk-[a-z0-9]+\.(?:js|css))/.exec(await html.text())?.[1];
       expect(asset).toBeDefined();
-      expect((await fetch(url(3076, `/dist/${asset}`))).headers.get("cache-control")).toContain("immutable");
+      expect((await fetch(url(3080, `/dist/${asset}`))).headers.get("cache-control")).toContain("immutable");
     });
   });
 
-  describe("[77] ★ bun:ffi", () => {
+  describe("[81] ★ bun:ffi", () => {
     test("libsqlite3 version, libc calls, TinyCC compiled C", async () => {
-      const r = (await (await fetch(url(3077, "/ffi"))).json()) as Record<string, any>;
+      const r = (await (await fetch(url(3081, "/ffi"))).json()) as Record<string, any>;
       expect(String(r.sqliteVersion)).toMatch(/^3\.\d+\.\d+$/);
       expect(r.libc).toMatchObject({ sameAsProcessPid: true, strlen: 5, abs: 42 });
       expect(r.tinycc).toEqual({ sum: 10, greeting: "hello from C, compiled by TinyCC at runtime" });
@@ -8550,7 +9226,7 @@ async function defineSelfTests() {
       proc!.kill("SIGINT");
       const code = await Promise.race([proc!.exited, Bun.sleep(8000).then(() => "timeout")]);
       expect(code).toBe(0);
-      expect(stdout).toContain("graceful stop (77)");
+      expect(stdout).toContain("graceful stop (81)");
       expect(await Bun.file(UNIX_SOCK).exists()).toBe(false);
     }, 10_000);
   });
