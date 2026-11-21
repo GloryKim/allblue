@@ -810,6 +810,7 @@ async function start04() {
       "/": () => new Response("홈"),
       "/about": () => new Response("소개 페이지"),
       "/users/:id": (req) => {
+        // :id 자리에 들어온 값. 숫자처럼 보여도 문자열이다
         const { id } = req.params;
         return Response.json({ userId: id });
       },
@@ -918,6 +919,7 @@ async function start06() {
         new Response("예: GET /search?q=키워드&page=1"),
       "/search": (req) => {
         const url = new URL(req.url);
+        // 쿼리가 없으면 get()은 null. ?. 덕분에 여기서 에러가 안 난다
         const term = url.searchParams.get("q")?.trim();
         const page = Number(url.searchParams.get("page") ?? "1");
 
@@ -1029,6 +1031,7 @@ async function start08() {
   const readmePath = `${ROOT}/_static/readme.txt`;
   const pagePath = `${ROOT}/_static/page.html`;
 
+  // Bun.write는 폴더가 없으면 만들고, 파일이 있으면 덮어쓴다
   await Bun.write(
     readmePath,
     "Bun.file 로 정적 파일을 서빙하는 초급 예제입니다.\n",
@@ -1094,6 +1097,7 @@ async function start09() {
         const raw = req.cookies.get("visits") ?? "0";
         const prev = Number(raw);
         const visits = (Number.isSafeInteger(prev) && prev >= 0 ? prev : 0) + 1;
+        // set만 해 두면 응답에 Set-Cookie 헤더가 알아서 붙는다
         req.cookies.set("visits", String(visits), {
           path: "/",
           httpOnly: true,
@@ -1102,6 +1106,7 @@ async function start09() {
         return Response.json({ visits, message: `${visits}번째 방문` });
       },
       "/logout": (req) => {
+        // 삭제 = 만료된 쿠키를 다시 보내는 것. path가 처음과 같아야 지워진다
         req.cookies.delete("visits", { path: "/" });
         return Response.json({ ok: true, message: "visits 쿠키 삭제" });
       },
@@ -1227,6 +1232,7 @@ async function start12() {
   // gives block style; without the indent argument it gives flow style
   // ({a: 1, b: [1,2]}), like JSON.stringify.
 
+  // 포맷 이름으로 파서를 고르는 표. if/else를 길게 늘어놓지 않아도 된다
   const parsers: Record<string, (text: string) => unknown> = {
     json: (t) => JSON.parse(t),
     yaml: (t) => YAML.parse(t),
@@ -1307,6 +1313,7 @@ async function start13() {
         const text = qp(req, "text") ?? "";
         return Response.json({
           text,
+          // 해시값이 bigint라서 JSON에 넣으려면 문자열로 바꿔야 한다
           wyhash: Bun.hash(text).toString(),
           xxHash3: Bun.hash.xxHash3(text).toString(),
           crc32: Bun.hash.crc32(text).toString(16).padStart(8, "0"),
@@ -1320,6 +1327,7 @@ async function start13() {
           v4: crypto.randomUUID(),
           v7,
           v7SortsByCreationTime: [...v7].sort().join() === v7.join(),
+          // v5는 랜덤이 아니다. 같은 이름이면 언제나 같은 id
           v5SameNameSameId: Bun.randomUUIDv5("bun.com", "dns"),
         });
       },
@@ -1392,6 +1400,7 @@ async function start14() {
     routes: {
       "/files": async () => {
         const files = [];
+        // scan()은 비동기 반복자라 for await로 하나씩 받는다
         for await (const name of new Bun.Glob("*.txt").scan({ cwd: DIR, onlyFiles: true })) {
           const f = Bun.file(`${DIR}/${name}`);
           files.push({ name, size: f.size, lastModified: new Date(f.lastModified).toISOString() });
@@ -1408,6 +1417,7 @@ async function start14() {
         PUT: async (req) => {
           const path = pathOf(req.params.name);
           const existed = await Bun.file(path).exists();
+          // 반환값은 실제로 쓴 바이트 수
           const written = await Bun.write(path, await req.text());
           return Response.json({ name: req.params.name, bytes: written, created: !existed }, { status: existed ? 200 : 201 });
         },
@@ -1462,6 +1472,7 @@ async function start15() {
 
   async function renderSafe(md: string): Promise<string> {
     const html = Bun.markdown.html(md, { tagFilter: true, noHtmlBlocks: true, noHtmlSpans: true });
+    // HTML을 흘려 읽으면서 선택자에 걸린 태그만 손보는 변환기
     return new HTMLRewriter()
       .on("a[href]", {
         element(el) {
@@ -1475,6 +1486,7 @@ async function start15() {
           if (!/^(https?:|\/)/i.test(el.getAttribute("src") ?? "")) el.removeAttribute("src");
         },
       })
+      // 문자열이 아니라 Response를 넣고 Response를 돌려받는다
       .transform(new Response(html))
       .text();
   }
@@ -1543,6 +1555,7 @@ async function start16() {
     for (const part of (header ?? "").split(",")) {
       const [name, ...params] = part.trim().toLowerCase().split(";");
       const q = params.find((p) => p.trim().startsWith("q="));
+      // q=0 은 '이 인코딩은 쓰지 마'라는 뜻이라 뺀다
       if (name && (!q || Number(q.trim().slice(2)) > 0)) out.add(name);
     }
     return out;
@@ -1553,6 +1566,7 @@ async function start16() {
     routes: {
       "/data": (req) => {
         const ok = accepted(req.headers.get("accept-encoding"));
+        // zstd가 gzip보다 작고 빨라서 먼저 고른다
         const enc = ok.has("zstd") ? "zstd" : ok.has("gzip") ? "gzip" : "identity";
         const headers: Record<string, string> = { "Content-Type": "application/json", Vary: "Accept-Encoding", "X-Uncompressed-Length": String(json.length) };
         if (enc !== "identity") headers["Content-Encoding"] = enc;
@@ -1611,6 +1625,7 @@ async function start17() {
 
   const sql = new SQL(":memory:"); // adapter chosen from the URL: SQLite here
   await sql`CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE)`;
+  // sql(배열)을 넣으면 여러 행을 INSERT 한 번으로 넣는다
   await sql`INSERT INTO users ${sql([
     { name: "Alice", email: "alice@example.com" },
     { name: "Bob", email: "bob@example.com" },
@@ -1654,6 +1669,7 @@ async function start17() {
   });
 
   console.log(`17 http_server ★ → ${server.url}`);
+  // 서버를 먼저 멈추고 DB를 닫아야 처리 중인 요청이 안 깨진다
   register("17", {
     url: server.url,
     stop: async (force?: boolean) => {
@@ -1712,6 +1728,7 @@ async function start18() {
     }
     return { user: body.user, password: body.password };
   }
+  // 해시 문자열 앞부분만 봐도 어떤 알고리즘인지 알 수 있다
   const algorithmOf = (hash: string) => (hash.startsWith("$argon2id$") ? "argon2id" : hash.startsWith("$2") ? "bcrypt" : "other");
 
   const server = Bun.serve({
@@ -1803,6 +1820,7 @@ async function start19() {
         const t0 = Bun.nanoseconds();
         await Bun.sleep(5);
         const settled = Promise.resolve(42);
+        // 영원히 안 끝나는 Promise. peek이 그대로 돌려주는지 보려고
         const pending = new Promise(() => {});
         const original = { when: new Date(0), tags: new Set(["a"]), counts: new Map([["x", 1]]) };
         const copy = structuredClone(original);
@@ -1900,6 +1918,7 @@ async function start20() {
   }
 
   // Ask SQLite itself: this is the version bun:sqlite actually links.
+  // :memory: 는 파일 없이 메모리에만 만드는 DB
   const probe = new Database(":memory:");
   const sqliteInUse = (probe.query("SELECT sqlite_version() AS v").get() as { v: string }).v;
   probe.close();
@@ -2094,6 +2113,7 @@ async function start22() {
   const server = Bun.serve({
     port: 3022,
     async fetch(req) {
+      // 프리플라이트: 브라우저가 본 요청 전에 '보내도 돼?' 하고 먼저 묻는 요청
       if (req.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: CORS });
       }
@@ -2146,6 +2166,7 @@ async function start23() {
       "/upload": {
         POST: async (req) => {
           const form = await req.formData();
+          // 파일 칸이면 File, 일반 입력칸이면 문자열이 들어 있다
           const file = form.get("file");
 
           if (!(file instanceof File)) {
@@ -2233,12 +2254,14 @@ async function start24() {
         srv.timeout(req, 0);
 
         let timer: ReturnType<typeof setInterval> | undefined;
+        // start는 스트림이 만들어질 때 한 번 불린다. 여기서 타이머를 건다
         const stream = new ReadableStream({
           start(controller) {
             const enc = new TextEncoder();
             let n = 0;
             timer = setInterval(() => {
               n += 1;
+              // SSE 한 건 = 'data: 내용' 줄 + 빈 줄 하나
               controller.enqueue(
                 enc.encode(`data: ${JSON.stringify({ n, t: Date.now() })}\n\n`),
               );
@@ -2252,6 +2275,7 @@ async function start24() {
               }
             }, 500);
           },
+          // 클라이언트가 끊으면 불린다. 타이머를 안 치우면 혼자 계속 돈다
           cancel() {
             if (timer) clearInterval(timer);
           },
@@ -2303,6 +2327,7 @@ async function start25() {
     const a = mac(auth);
     const b = mac(`Bearer ${token}`);
     let diff = 0;
+    // 다른 바이트가 하나라도 있으면 diff가 0이 아니게 된다. 중간에 안 멈추고 끝까지 도는 게 요점
     for (let i = 0; i < a.length; i++) diff |= a[i]! ^ b[i]!;
     if (diff === 0) return null; // 통과
     return new Response("Unauthorized", {
@@ -2556,6 +2581,7 @@ async function start29() {
         }),
       "/stats": (_req, srv) =>
         Response.json({
+          // 그 토픽을 구독 중인 소켓 수
           lobby: srv.subscriberCount("lobby"),
           pendingWebSockets: srv.pendingWebSockets,
         }),
@@ -2563,6 +2589,7 @@ async function start29() {
     fetch(req, srv) {
       const url = new URL(req.url);
       if (url.pathname === "/ws") {
+        // 여기 넣은 data가 그 소켓의 ws.data로 계속 따라다닌다
         const ok = srv.upgrade(req, {
           data: {
             username: url.searchParams.get("user") ?? "anon",
@@ -2574,6 +2601,7 @@ async function start29() {
       return new Response("Not Found", { status: 404 });
     },
     websocket: {
+      // 실제 값이 아니라 ws.data의 타입을 알려 주는 자리
       data: {} as WsData,
       open(ws) {
         ws.subscribe(ws.data.room);
@@ -2628,12 +2656,14 @@ async function start30() {
   async function readBody(req: Request): Promise<{ name?: unknown; qty?: unknown } | Response> {
     try {
       const v = (await req.json()) as unknown;
+      // null, 배열, 숫자도 JSON으로는 맞는 값이라 객체인지 따로 확인
       if (v && typeof v === "object" && !Array.isArray(v)) return v as { name?: unknown; qty?: unknown };
       return Response.json({ error: "body must be a JSON object" }, { status: 400 });
     } catch {
       return Response.json({ error: "invalid JSON" }, { status: 400 });
     }
   }
+  // v is string: true를 돌려주면 그 뒤로 TS가 v를 string으로 본다
   const isName = (v: unknown): v is string => typeof v === "string" && v.trim().length > 0;
   const isQty = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0;
 
@@ -2697,6 +2727,7 @@ async function start30() {
           if (body.qty !== undefined && !isQty(body.qty)) {
             return Response.json({ error: "qty must be an integer >= 0" }, { status: 400 });
           }
+          // 보낸 필드만 덮어쓰고 나머지는 기존 값 그대로
           const next: Item = {
             ...cur,
             ...(body.name !== undefined ? { name: (body.name as string).trim() } : {}),
@@ -2767,6 +2798,7 @@ async function start31() {
     port: 3031,
     routes: {
       "/api/posts": {
+        // all()은 행 배열, get()은 첫 행 하나(없으면 null)
         GET: () => Response.json(listPosts.all()),
         POST: async (req) => {
           const body = (await req.json()) as { title?: string; content?: string };
@@ -2793,6 +2825,7 @@ async function start31() {
         },
         DELETE: (req) => {
           const r = deletePost.run(req.params.id);
+          // changes는 실제로 바뀐 행 수. 0이면 그런 id가 없었다는 뜻
           if (r.changes === 0) return new Response("Not Found", { status: 404 });
           return new Response(null, { status: 204 });
         },
@@ -2868,6 +2901,7 @@ async function start32() {
   for (const [name, price] of SEED) insertProduct.run(name, price);
   const sqliteVersion = (db.query("SELECT sqlite_version() AS v").get() as { v: string }).v;
   const rules354 = Bun.semver.satisfies(sqliteVersion, ">=3.54.0");
+  // PRAGMA table_info: 테이블의 컬럼 목록을 돌려주는 SQLite 명령
   const columns = () => (db.query("PRAGMA table_info(products)").all() as { name: string }[]).map((c) => c.name);
 
   // What THIS SQLite does with the raw statement, on a scratch table.
@@ -2935,6 +2969,7 @@ async function start32() {
           const existing = columns();
           if (existing.some((c) => c.toLowerCase() === name.toLowerCase())) throw new HttpError(409, `column "${name}" already exists`);
           if (existing.length >= 16) throw new HttpError(409, "this demo table is full (16 columns): restart allblue.ts");
+          // 위에서 이름을 검사했으니 SQL 문자열에 직접 넣어도 된다
           db.exec(`ALTER TABLE products ADD COLUMN "${name}" TEXT`);
           return Response.json({ added: name, columns: columns() }, { status: 201 });
         },
@@ -3033,6 +3068,7 @@ async function start33() {
       },
       "/metrics": (_req, srv) =>
         Response.json({
+          // 지금 처리 중인 요청 수 (이 요청 자신도 포함)
           pendingRequests: srv.pendingRequests,
           pendingWebSockets: srv.pendingWebSockets,
           hostname: srv.hostname,
@@ -3053,6 +3089,7 @@ async function start33() {
       open(ws) {
         ws.subscribe("demo");
       },
+      // 메시지는 안 쓰지만 message 핸들러는 꼭 있어야 한다
       message() {},
       close(ws) {
         ws.unsubscribe("demo");
@@ -3092,6 +3129,7 @@ async function start34() {
       nextSweep = now + WINDOW_MS;
     }
     let rec = hits.get(ip);
+    // 처음 온 IP거나 창이 지났으면 카운트를 0부터 다시
     if (!rec || now > rec.resetAt) {
       rec = { count: 0, resetAt: now + WINDOW_MS };
       hits.set(ip, rec);
@@ -3112,6 +3150,7 @@ async function start34() {
     fetch(req, srv) {
       const ip = srv.requestIP(req)?.address ?? "unknown";
       const { ok, remaining, resetAt } = rateLimit(ip);
+      // Retry-After: 몇 초 뒤에 다시 오라는 값 (초 단위)
       const retryAfter = Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
 
       if (!ok) {
@@ -3257,6 +3296,7 @@ async function start36() {
         }
 
         end = Math.min(end, size);
+        // slice는 바로 읽지 않는다. 보낼 때 그 구간만 디스크에서 읽는다
         const slice = file.slice(start, end);
 
         return new Response(slice, {
@@ -3264,6 +3304,7 @@ async function start36() {
           headers: {
             "Content-Type": "text/plain; charset=utf-8",
             "Accept-Ranges": "bytes",
+            // Content-Range의 끝 값은 포함 범위라 1을 뺀다
             "Content-Range": `bytes ${start}-${end - 1}/${size}`,
             "Content-Length": String(end - start),
           },
@@ -3449,8 +3490,10 @@ async function start39() {
 
   type NoteRow = { id: number; text: string; tags: string; version: number; updated_at: string };
   const db = new Database(":memory:", { strict: true }); // strict: bind { id } instead of { $id }
+  // 끝의 STRICT: 컬럼 타입과 안 맞는 값을 넣으면 에러를 낸다
   db.run(`CREATE TABLE notes (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL, tags TEXT NOT NULL, version INTEGER NOT NULL, updated_at TEXT NOT NULL) STRICT`);
   const q = {
+    // 제네릭 첫째는 결과 행 타입, 둘째는 바인딩할 파라미터 타입
     insert: db.query<NoteRow, { text: string; tags: string; now: string }>(
       `INSERT INTO notes (text, tags, version, updated_at) VALUES ($text, $tags, 1, $now) RETURNING *`,
     ),
@@ -3490,6 +3533,7 @@ async function start39() {
     routes: {
       "/api/notes": {
         GET: (req) => {
+          // 이상한 값이 와도 1~100 사이로 잘라서 쓴다
           const limit = Math.min(100, Math.max(1, Number(qp(req, "limit")) || 20));
           const cursor = Math.max(0, Number(qp(req, "cursor")) || 0);
           const rows = q.page.all({ cursor, limit: limit + 1, tag: qp(req, "tag") });
@@ -3514,8 +3558,10 @@ async function start39() {
           const cur = q.get.get({ id });
           if (!cur) throw new HttpError(404, "note not found");
           const ifMatch = req.headers.get("if-match");
+          // If-Match가 없으면 지금 버전으로 치고 그냥 덮어쓴다
           const expected = ifMatch === null ? cur.version : Number(ifMatch.replaceAll('"', ""));
           const row = q.update.get({ id, version: expected, text: b.text?.trim() ?? cur.text, tags: b.tags ? JSON.stringify(b.tags) : cur.tags, now: new Date().toISOString() });
+          // 업데이트된 행이 없다 = 그 사이 누가 먼저 고쳐서 버전이 바뀌었다
           if (!row) throw new HttpError(412, `note is now version ${cur.version}, you sent If-Match ${ifMatch}; GET it again`);
           return Response.json(toNote(row), { headers: { ETag: etagOf(row) } });
         },
@@ -3621,6 +3667,7 @@ async function start41() {
   db.run(`CREATE TABLE events (id INTEGER PRIMARY KEY, kind TEXT NOT NULL, at TEXT NOT NULL)`);
   const ins = db.query(`INSERT INTO events (kind, at) VALUES (?, ?)`);
   // A transaction makes 2000 inserts one commit instead of 2000.
+  // transaction()은 감싼 함수를 돌려준다. 끝의 ()가 실제 실행
   db.transaction(() => {
     for (let i = 0; i < 2000; i++) ins.run(["login", "click", "logout"][i % 3]!, new Date(1_700_000_000_000 + i * 1000).toISOString());
   })();
@@ -3698,6 +3745,7 @@ async function start42() {
               clearTimeout(timer);
               resolve(true);
             },
+            // once: 한 번 불리면 리스너가 저절로 빠진다
             { once: true },
           );
         });
@@ -3709,6 +3757,7 @@ async function start42() {
         const fail = Math.min(10, Math.max(0, Number(qp(req, "fail")) || 0));
         const n = (counts.get(key) ?? 0) + 1;
         counts.set(key, n);
+        // Map은 넣은 순서를 기억해서 첫 키가 가장 오래된 키다
         if (counts.size > 1000) counts.delete(counts.keys().next().value!); // drop the oldest key
         if (n <= fail) {
           stats.flaky503++;
@@ -3817,6 +3866,7 @@ async function start44() {
 
   async function rewrite(): Promise<string> {
     return new HTMLRewriter()
+      // void: 반환값을 버린다는 표시. 핸들러가 값을 돌려주지 않게 한다
       .on("script", { element: (el) => void el.remove() }) // drop scripts entirely
       .on("a[href^='http']", {
         element(el) {
@@ -3890,6 +3940,7 @@ async function start45() {
     runs++;
     lastRun = new Date().toISOString();
   }
+  // 매 분 실행. 돌려받은 job으로 나중에 stop() 한다
   const job = Bun.cron("* * * * *", cleanupJob);
 
   const server = Bun.serve({
@@ -3913,6 +3964,7 @@ async function start45() {
             const next = Bun.cron.parse(expr, cursor, tz ? { tz } : undefined);
             if (!next) break; // the expression can never match
             times.push(next.toISOString());
+            // 방금 구한 시각을 기준으로 그다음 시각을 또 구한다
             cursor = next;
           }
         } catch (err) {
@@ -3975,6 +4027,7 @@ async function start46() {
         return Response.json({ cmd, path: Bun.which(cmd) });
       },
       "/failing": async () => {
+        // nothrow: 실패해도 throw 대신 exitCode로 확인, quiet: 터미널에 안 찍음
         const r = await $`ls /definitely-missing-dir`.nothrow().quiet();
         return Response.json({ exitCode: r.exitCode, stderr: r.stderr.toString().trim() });
       },
@@ -4033,6 +4086,7 @@ async function start47() {
     port: 3047,
     routes: {
       "/run": async (req, srv) => {
+        // 이 요청만 idleTimeout을 60초로 늘린다. 테스트 실행이 오래 걸려서
         srv.timeout(req, 60);
         const args = ["test", "./src/math.test.ts"];
         if (qp(req, "coverage") === "1") args.push("--coverage");
@@ -4136,6 +4190,7 @@ async function start48() {
       },
       "/build": async () => {
         const r = await runBun(["build", "./src/hello.ts", "--outdir", "dist", "--target", "bun", "--minify"], { cwd });
+        // 빌드가 실패해 파일이 없으면 빈 문자열로 넘어간다
         const built = await Bun.file(`${cwd}/dist/hello.js`).text().catch(() => "");
         const run = await runBun(["./dist/hello.js"], { cwd });
         return Response.json({
@@ -4227,6 +4282,7 @@ ws.onmessage = (e) => { const m = JSON.parse(e.data); log(m.type + ": " + (m.tex
 document.getElementById("f").onsubmit = (e) => { e.preventDefault(); const i = document.getElementById("msg"); ws.send(i.value); log("me: " + i.value); i.value = ""; };
 </script>`;
 
+  // 핸들러 안에서 server를 다시 쓰니 타입을 직접 적어 줘야 TS가 헷갈리지 않는다
   const server: Server<Chat> = Bun.serve({
     port: 3049,
     routes: {
@@ -4283,6 +4339,7 @@ document.getElementById("f").onsubmit = (e) => { e.preventDefault(); const i = d
       const room = url.searchParams.get("room") ?? "lobby";
       const name = url.searchParams.get("name") ?? "";
       if (!ROOM.test(room) || !NAME.test(name)) return Response.json({ error: "room or name invalid" }, { status: 400 });
+      // 클라이언트는 'a, b'처럼 쉼표로 여러 개를 제안한다
       const offered = (req.headers.get("sec-websocket-protocol") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
       const protocol = offered.find((p) => SUPPORTED.includes(p)) ?? null;
       if (offered.length > 0 && !protocol) return Response.json({ error: `supported protocols: ${SUPPORTED.join(", ")}` }, { status: 400 });
@@ -4383,6 +4440,7 @@ async function start50() {
       role TEXT NOT NULL DEFAULT 'user',
       active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`;
   }
+  // 결과는 행 배열이라 첫 행을 바로 구조 분해한다
   const [{ n }] = await sql`SELECT count(*) AS n FROM bun_demo_users`;
   if (Number(n) === 0) {
     await sql`INSERT INTO bun_demo_users ${sql([
@@ -4393,6 +4451,7 @@ async function start50() {
   }
 
   type Row = { id: number; name: string; email: string; active: boolean | number };
+  // SQLite는 boolean을 0/1로 돌려줘서 응답 모양을 하나로 맞춘다
   const shape = (r: Row) => ({ id: Number(r.id), name: r.name, email: r.email, active: Boolean(r.active) });
   const isUnique = (err: unknown) => {
     const e = err as { code?: string; errno?: string | number };
@@ -4413,6 +4472,7 @@ async function start50() {
       "/": () => Response.json({ adapter, table: "bun_demo_users" }),
       "/users": {
         GET: async (req) => {
+          // 'false'일 때만 false, 나머지는 전부 true
           const active = qp(req, "active") !== "false";
           const limit = Math.min(Math.max(Number(qp(req, "limit") ?? 10) || 10, 1), 100);
           const rows = await sql`SELECT id, name, email, active FROM bun_demo_users
@@ -4555,6 +4615,7 @@ async function start51() {
   const subscriber = await client.duplicate();
   const CHANNEL = "bun-demo:events";
   const received: { channel: string; message: string; at: string }[] = [];
+  // 메시지가 올 때마다 콜백이 불린다. 최근 20개만 남긴다
   await subscriber.subscribe(CHANNEL, (message, channel) => {
     received.push({ channel, message, at: new Date().toISOString() });
     if (received.length > 20) received.shift();
@@ -4573,6 +4634,7 @@ async function start51() {
         if (hit !== null) return Response.json({ n, square: Number(hit), cached: true, ttl: await client.ttl(key) });
         await Bun.sleep(100); // pretend this is expensive
         const square = n * n;
+        // EX 30: 30초 뒤에 Redis가 알아서 지운다
         await client.set(key, String(square), "EX", 30);
         return Response.json({ n, square, cached: false, ttl: 30 });
       },
@@ -4591,6 +4653,7 @@ async function start51() {
         POST: async (req) => {
           const msg = (qp(req, "msg") ?? "").slice(0, 200);
           if (!msg) throw new HttpError(400, "msg=...");
+          // publish는 메시지를 받은 구독자 수를 돌려준다
           return Response.json({ receivers: await client.publish(CHANNEL, msg) });
         },
       },
@@ -4667,6 +4730,7 @@ function startToyRedis() {
       args.push(b.subarray(end + 2, end + 2 + len).toString());
       at = end + 2 + len + 2;
     }
+    // 처리한 만큼 버퍼 앞을 잘라 낸다
     c.buf = b.subarray(at);
     return args;
   }
@@ -4699,6 +4763,7 @@ function startToyRedis() {
       }
       case "TTL": {
         const e = live(a[0]!);
+        // Redis 규칙: -2는 키 없음, -1은 만료 시간 없음
         if (!e) return enc.int(-2);
         return enc.int(e.expiresAt === undefined ? -1 : Math.ceil((e.expiresAt - Date.now()) / 1000));
       }
@@ -4805,6 +4870,7 @@ async function start52() {
   const s3 = live
     ? new S3Client()
     : new S3Client({ accessKeyId: "DEMOKEY", secretAccessKey: "DEMOSECRET", bucket: "demo-bucket", endpoint: "http://127.0.0.1:9000", region: "us-east-1" });
+  // (?!.*\.\.) : 문자열 어디에도 '..'가 없을 때만 통과
   const KEY = /^(?!.*\.\.)[A-Za-z0-9][A-Za-z0-9/_.-]{0,200}$/;
   const checkKey = (key: string) => {
     if (!KEY.test(key)) throw new HttpError(400, "key: [A-Za-z0-9/_.-], no '..'");
@@ -4845,6 +4911,7 @@ async function start52() {
           const key = checkKey(decodeURIComponent(new URL(req.url).pathname.slice("/objects/".length)));
           const file = s3.file(key);
           if (!(await file.exists())) throw new HttpError(404, "no such object");
+          // 통째로 읽지 않고 스트림으로 바로 흘려보낸다
           return new Response(file.stream());
         },
       },
@@ -5002,6 +5069,7 @@ async function start54() {
     routes: {
       "/report": async () => {
         const report: Record<string, unknown> = {};
+        // 한 단계가 실패해도 나머지는 계속 돌도록 결과를 report에 모은다
         const attempt = async (name: string, fn: () => Promise<unknown>) => {
           try {
             report[name] = await fn();
@@ -5030,6 +5098,7 @@ async function start54() {
         await attempt("decompressFalse", async () => {
           const r = await fetch("http://127.0.0.1:3016/data", { headers: { "Accept-Encoding": "gzip" }, decompress: false });
           const raw = await r.bytes();
+          // gzip 데이터는 항상 1f 8b 두 바이트로 시작한다
           return { contentEncoding: r.headers.get("content-encoding"), rawBytes: raw.byteLength, gzipMagic: raw[0] === 0x1f && raw[1] === 0x8b };
         });
         return Response.json(report);
@@ -5151,6 +5220,7 @@ async function start56() {
   //     -d '{"alg":"sha3-256","data":"hello","signature":"<signature from /sign>"}'
 
   const nodeCrypto = await import("node:crypto");
+  // RSA 키 생성은 꽤 느려서 시작할 때 한 번만 만든다
   const { privateKey, publicKey } = nodeCrypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
   const ALGS = ["sha256", "sha384", "sha512", "sha512-224", "sha512-256", "sha3-256", "sha3-384", "sha3-512", "ripemd160"];
   const FIXED_IN_145 = new Set(["sha512-224", "sha512-256", "sha3-256", "sha3-384", "sha3-512", "ripemd160"]);
@@ -5181,6 +5251,7 @@ async function start56() {
         return Response.json({ bun: Bun.version, keyBits: 2048, results });
       },
       "/public-key": () =>
+        // spki는 공개키 표준 형식, pem은 그걸 base64 텍스트로 감싼 것
         new Response(publicKey.export({ type: "spki", format: "pem" }), {
           headers: { "Content-Type": "application/x-pem-file" },
         }),
@@ -5200,6 +5271,7 @@ async function start56() {
           const body = (await readJsonCapped(req, MAX_BYTES * 2)) as { alg?: unknown; data?: unknown; signature?: unknown; pss?: unknown };
           const alg = checkAlg(body.alg);
           if (typeof body.data !== "string" || typeof body.signature !== "string") throw new HttpError(422, "data and signature (base64url) must be strings");
+          // base64url: + / 대신 - _ 를 써서 URL에 그대로 넣을 수 있는 base64
           const signature = Buffer.from(body.signature, "base64url");
           // verify() returns false for a wrong signature; it does not throw.
           const valid = nodeCrypto.verify(alg, Buffer.from(body.data), withPadding(publicKey, body.pss === true), signature);
@@ -5240,6 +5312,7 @@ async function start57() {
   // bun --hot 과 병행 시: globalThis 상태는 프로세스에 남음
 
   const g = globalThis as typeof globalThis & { __reloadCount?: number };
+  // ??= : 값이 없을 때만 넣는다. 핫 리로드돼도 숫자가 유지된다
   g.__reloadCount ??= 0;
 
   const server = Bun.serve({
@@ -5370,10 +5443,12 @@ async function start59() {
             headers: {
               accept: req.headers.get("accept") ?? "*/*",
             },
+            // GET/HEAD는 본문이 없어야 해서 undefined
             body:
               req.method === "GET" || req.method === "HEAD"
                 ? undefined
                 : await req.arrayBuffer(),
+            // manual: 리다이렉트를 따라가지 않고 그대로 클라이언트에 넘긴다
             redirect: "manual",
           });
 
@@ -5386,6 +5461,7 @@ async function start59() {
           }
           headers.set("X-Proxied-From", target);
 
+          // 본문을 다 받지 않고 스트림째로 넘긴다
           return new Response(upstream.body, {
             status: upstream.status,
             headers,
@@ -5486,6 +5562,7 @@ async function start61() {
   //   curl http://localhost:3061/api/other        # /api/*
   //   curl http://localhost:3061/anything         # /*
 
+  // 맨 끝의 satisfies: 옵션 타입은 검사하되 추론된 타입은 그대로 둔다
   const server = Bun.serve({
     port: 3061,
     routes: {
@@ -5646,6 +5723,7 @@ VoVcUXp47HnEJGm2im8gSkycKw20N3PXZ+t3mhA=
   const { X509Certificate } = await import("node:crypto");
 
   const hello = (text: string) => () => new Response(text);
+  // port 0: 비어 있는 포트를 OS가 골라 준다
   const expired = Bun.serve({ port: 0, hostname: "127.0.0.1", tls: { key: EXPIRED_TLS_KEY, cert: EXPIRED_TLS_CERT }, fetch: hello("expired cert") });
   const selfSigned = Bun.serve({ port: 0, hostname: "127.0.0.1", tls: { key: DEV_TLS_KEY, cert: DEV_TLS_CERT }, fetch: hello("self-signed cert") });
 
@@ -5661,6 +5739,7 @@ VoVcUXp47HnEJGm2im8gSkycKw20N3PXZ+t3mhA=
 
   async function viaFetch(port: number, tlsOptions: Record<string, unknown>): Promise<Outcome> {
     try {
+      // AbortSignal.timeout: 3초 안에 안 끝나면 저절로 취소된다
       const res = await fetch(`https://127.0.0.1:${port}/`, { tls: tlsOptions, signal: AbortSignal.timeout(3000) } as RequestInit);
       await res.arrayBuffer();
       return { ok: true, status: res.status };
@@ -5670,6 +5749,7 @@ VoVcUXp47HnEJGm2im8gSkycKw20N3PXZ+t3mhA=
   }
   function viaTls(port: number, servername: string, options: Record<string, unknown>): Promise<Outcome> {
     return new Promise((resolve) => {
+      // servername은 SNI. 인증서의 호스트 이름도 이 값으로 검사한다
       const socket = tls.connect({ host: "127.0.0.1", port, servername, ...options }, () => {
         resolve({ ok: true, authorized: socket.authorized, authorizationError: reason(socket.authorizationError) });
         socket.end();
@@ -5858,6 +5938,7 @@ console.log("[app.ts] loaded — 이 파일을 저장하면 HMR");
   const server = Bun.serve({
     port: 3065,
     routes: {
+      // HTMLBundle을 그대로 라우트에 주면 Bun이 번들링해서 서빙한다
       "/": homepage,
       "/api/time": () => Response.json({ now: Date.now() }),
     },
@@ -5937,10 +6018,13 @@ async function start66() {
     },
     websocket: {
       data: {} as WsData,
+      // 메시지를 압축해서 주고받는다. 텍스트가 많을 때 효과가 크다
       perMessageDeflate: true,
       idleTimeout: 60,
       maxPayloadLength: 1024 * 1024,
+      // 못 보내고 쌓인 데이터가 이만큼 넘으면 백프레셔 상태
       backpressureLimit: 1024 * 1024,
+      // false: 한도를 넘어도 연결은 끊지 않는다
       closeOnBackpressureLimit: false,
       open(ws) {
         ws.send(`welcome ${ws.data.id}`);
@@ -5988,6 +6072,7 @@ async function start67() {
       typeof data === "string" ? new TextEncoder().encode(data) : new Uint8Array(data);
     let s = "";
     for (const b of bytes) s += String.fromCharCode(b);
+    // base64의 + / 를 - _ 로 바꾸고 끝의 = 패딩은 뗀다
     return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   }
 
@@ -5996,6 +6081,7 @@ async function start67() {
   }
 
   async function hmacKey() {
+    // 문자열 비밀키를 Web Crypto가 쓰는 CryptoKey로 바꾼다
     return crypto.subtle.importKey(
       "raw",
       new TextEncoder().encode(SECRET),
@@ -6009,6 +6095,7 @@ async function start67() {
     const header = { alg: "HS256", typ: "JWT" };
     const body = {
       ...payload,
+      // 초 단위 유닉스 시간. iat는 발급 시각, exp는 만료 시각
       iat: Math.floor(Date.now() / 1000),
       exp: Math.floor(Date.now() / 1000) + expiresInSec,
     };
@@ -6024,6 +6111,7 @@ async function start67() {
   }
 
   function fromB64url(s: string): Uint8Array<ArrayBuffer> { // FIXED type: crypto.subtle needs an ArrayBuffer-backed view
+    // 떼어 냈던 = 패딩을 길이가 4의 배수가 되게 다시 붙인다
     const pad = "=".repeat((4 - (s.length % 4)) % 4);
     const b64 = s.replace(/-/g, "+").replace(/_/g, "/") + pad;
     return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
@@ -6134,6 +6222,7 @@ async function start68() {
   });
 
   app.post("/api/users", async (req, res) => {
+    // req.raw가 원래 Request 객체
     const body = (await req.raw.json()) as { name?: string };
     if (!body.name?.trim()) {
       res.status(400).json({ error: "name required" });
@@ -6286,6 +6375,7 @@ async function start69() {
     fetch(req, srv) {
       const url = new URL(req.url);
       if (url.pathname === "/ws") {
+        // fetch()로 온 요청에는 req.cookies가 없어서 Cookie 헤더를 직접 파싱한다
         const sid = new Bun.CookieMap(req.headers.get("cookie") ?? "").get("sid");
         const user = sid ? sessions.get(sid) : undefined;
         if (!user) return new Response("Unauthorized: POST /api/login first", { status: 401 });
@@ -6541,6 +6631,7 @@ async function start72() {
   const listeners = new Set<(job: Job) => void>();
   const update = (job: Job, patch: Partial<Job>) => {
     Object.assign(job, patch);
+    // 복사본을 넘겨서 리스너가 원본 job을 못 건드리게
     for (const fn of listeners) fn({ ...job });
   };
 
@@ -6583,6 +6674,7 @@ async function start72() {
           queue.push(job);
           for (const fn of listeners) fn({ ...job });
           pump();
+          // 202: 접수는 했고 아직 안 끝났다는 뜻
           return Response.json(job, { status: 202, headers: { Location: `/jobs/${job.id}` } });
         },
       },
@@ -6600,6 +6692,7 @@ async function start72() {
           start(controller) {
             const send = (event: string, data: unknown) => controller.enqueue(enc.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
             const onJob = (job: Job) => send("job", job);
+            // ':'로 시작하는 줄은 SSE 주석. 연결이 끊기지 않게 가끔 보낸다
             const heartbeat = setInterval(() => controller.enqueue(enc.encode(": keep-alive\n\n")), 15_000);
             listeners.add(onJob);
             cleanup = () => {
@@ -6652,6 +6745,7 @@ async function start73() {
 
   function takeToken(d: D): boolean {
     const now = performance.now(); // monotonic clock
+    // 지난번 이후 흐른 시간만큼 토큰을 채운다 (capacity까지만)
     d.tokens = Math.min(RATE.capacity, d.tokens + ((now - d.refilledAt) / 1000) * RATE.perSecond);
     d.refilledAt = now;
     if (d.tokens < 1) return false;
@@ -6680,6 +6774,7 @@ async function start73() {
       if (!ws.data.rooms.has(r)) throw new HttpError(403, `join ${r} first`);
       if (typeof p.text !== "string" || !p.text || p.text.length > 500) throw new HttpError(422, "text: 1..500 characters");
       ws.publish(`room:${r}`, JSON.stringify({ type: "chat", room: r, from: ws.data.id, text: p.text }));
+      // 보낸 사람은 못 받으니 1을 뺀다
       return { delivered: server.subscriberCount(`room:${r}`) - 1 };
     },
   };
@@ -6705,6 +6800,7 @@ async function start73() {
       async message(ws, message) {
         if (typeof message !== "string") {
           if (!takeToken(ws.data)) return reply(ws, { type: "error", status: 429, error: "rate limited" });
+          // Buffer가 가리키는 구간만 보는 뷰. 복사가 없다
           const bytes = new Uint8Array(message.buffer, message.byteOffset, message.byteLength);
           return reply(ws, { type: "binary", size: bytes.byteLength, sha256: sha256hex(bytes) });
         }
@@ -6784,6 +6880,7 @@ async function start74() {
           const { bytes } = await load(req);
           const w = Math.min(1024, Math.max(16, Number(qp(req, "w")) || 128));
           const format = qp(req, "format") ?? "webp";
+          // inside: 비율 유지한 채 w×w 안에 맞추고, 작은 이미지는 키우지 않는다
           let img = new Bun.Image(bytes, { maxPixels: MAX_PIXELS }).resize(w, w, { fit: "inside", withoutEnlargement: true });
           if (format === "webp") img = img.webp({ quality: 75 });
           else if (format === "jpeg") img = img.jpeg({ quality: 80 });
@@ -6854,6 +6951,7 @@ async function start75() {
   const LIMIT = { log: 1024 * 1024, image: 4 * 1024 * 1024 };
   const QUOTA = 8 * 1024 * 1024;
   const utf8 = new TextDecoder("utf-8", { fatal: true });
+  // 탭과 줄바꿈(\n, \r)만 빼고 나머지 제어 문자
   // eslint-disable-next-line no-control-regex
   const CONTROL = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/;
   let pendingBytes = 0;
@@ -6979,10 +7077,12 @@ async function start76() {
       for (let i = 0; i < rounds; i++) h = new Bun.CryptoHasher("sha256").update(h).digest("hex");
       postMessage({ id, hash: h });
     };`;
+  // 코드 문자열을 파일처럼 쓸 수 있는 blob: 주소로 만든다
   const url = URL.createObjectURL(new Blob([src], { type: "application/javascript" }));
   const pool = [new Worker(url), new Worker(url)];
   const waiting = new Map<number, (hash: string) => void>();
   let seq = 0;
+  // 답장에 붙은 id로 기다리던 Promise를 찾아 풀어 준다
   for (const w of pool) w.onmessage = (e: MessageEvent<{ id: number; hash: string }>) => {
     waiting.get(e.data.id)?.(e.data.hash);
     waiting.delete(e.data.id);
@@ -6991,6 +7091,7 @@ async function start76() {
     new Promise<string>((resolve) => {
       const id = ++seq;
       waiting.set(id, resolve);
+      // id로 번갈아 가며 워커에 나눠 준다 (라운드 로빈)
       pool[id % pool.length]!.postMessage({ id, seed, rounds });
     });
   const onMain = (seed: string, rounds: number) => {
@@ -7076,6 +7177,7 @@ async function start77() {
     hostname: "127.0.0.1",
     port: 3077,
     socket: {
+      // UDP는 연결이 없어서 받을 때마다 보낸 쪽 주소가 같이 온다
       data(socket, buf, port, addr) {
         socket.send(`echo:${buf.toString()}`, port, addr);
       },
@@ -7131,14 +7233,17 @@ async function start78() {
       }
       await res?.body?.cancel(); // free the connection, we will not read it
       const retryAfter = Number(res?.headers.get("retry-after")) * 1000;
+      // 기다리는 시간을 1, 2, 4배로 늘리고 랜덤을 섞어 재시도가 한꺼번에 몰리지 않게
       await Bun.sleep(retryAfter > 0 ? retryAfter : baseMs * 2 ** (n - 1) * (0.5 + Math.random()));
     }
   }
 
+  // async 제너레이터: 페이지를 받아 오는 대로 하나씩 내보낸다
   async function* pages(limit: number): AsyncGenerator<{ id: number }> {
     let cursor: number | null = 0;
     while (cursor !== null) {
       const r = (await (await fetch(`${base(3039)}/api/notes?limit=${limit}&cursor=${cursor}`)).json()) as { items: { id: number }[]; nextCursor: number | null };
+      // yield*: 배열 항목을 하나씩 꺼내서 내보낸다
       yield* r.items;
       cursor = r.nextCursor;
     }
@@ -7146,6 +7251,7 @@ async function start78() {
 
   async function* sse(res: Response): AsyncGenerator<{ event: string; data: string }> {
     let buf = "";
+    // 바이트를 글자로 바꿔 주는 스트림. 한글이 청크 경계에서 잘려도 안전하다
     for await (const text of res.body!.pipeThrough(new TextDecoderStream())) {
       buf += text;
       let end: number;
@@ -7372,6 +7478,7 @@ async function start79() {
 
   function spawnChild() {
     let markReady!: (pid: number) => void;
+    // resolve를 밖으로 빼 두고, 자식이 ready를 보내면 그때 푼다
     ready = new Promise((resolve) => (markReady = resolve));
     child = Bun.spawn([process.execPath, "-e", CHILD], {
       env: BUN_CHILD_ENV,
@@ -7453,6 +7560,7 @@ async function start79() {
     stop: async (force?: boolean) => {
       stopping = true;
       await server.stop(force);
+      // 자식을 끝내고 정말 종료될 때까지 기다린다
       child?.kill();
       await child?.exited;
     },
@@ -7584,6 +7692,7 @@ document.getElementById("stats")!.textContent = JSON.stringify(await res.json(),
     });
     if (!result.success) throw new HttpError(500, "build failed", result.logs.map(String));
     // Output paths look like "./index.html", "./chunk-<hash>.js".
+    // 메모리에만 있는 빌드 결과를 파일 이름으로 찾게 Map에 담는다
     dist = new Map(result.outputs.map((o) => [o.path.replace(/^\.\//, ""), o]));
     return result.outputs.map((o) => ({ path: o.path, kind: o.kind, type: o.type, bytes: o.size }));
   }
@@ -7692,6 +7801,7 @@ const char *greeting(void) { return "hello from C, compiled by TinyCC at runtime
           const win = process.platform === "win32";
           const libcName = win ? "msvcrt.dll" : process.platform === "darwin" ? "libc.dylib" : "libc.so.6";
           const raw = dlopen(libcName, {
+            // OS마다 함수 이름이 달라서 키를 계산해서 넣는다
             [win ? "_getpid" : "getpid"]: { args: [], returns: FFIType.i32 },
             strlen: { args: [FFIType.ptr], returns: FFIType.u64 },
             abs: { args: [FFIType.i32], returns: FFIType.i32 },
