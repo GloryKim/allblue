@@ -237,7 +237,23 @@ Hugging Face `zai-org/GLM-5.4` 카드는 없다. [GLM-5 README](https://github.c
 
 앞일은 두 질문으로 열어 둔다. 어려운 토큰이 반복 횟수를 스스로 더 받게 하는 adaptive compute, 그리고 루프 횟수와 모델 크기가 같이 커질 때 이득이 어떻게 줄어드는지. 깊이와 크기 중 하나를 고르지 않고 둘 다 밀겠다고 한다. GLM-5.4는 계산 깊이를 검증한 모델이고, 다음의 훨씬 큰 모델이 여기서 배운 것을 이어받는다. 곧 준비된다고만 했다. 이름과 날짜는 없다.
 
-## 8. 계보와 당일 반응
+## 8. 중국어판은 번역이 아니다
+
+같은 발표의 중국어 공식글은 위챗 [GLM-5.4：瞄向泛Coding，首个Loop Transformer带来的惊喜](https://mp.weixin.qq.com/s/3mEIThoGiM6LhBAjUQAATw)다. 연구 목록은 2026-11-22, 영문 블로그 날짜는 2026-11-23이다. 어느 쪽이 먼저인지는 원문이 설명하지 않는다. 개인 저자명은 양쪽 다 없다.
+
+영문에 없고 중국어에 있는 문장만 적는다.
+
+- 당일 GLM Coding Plan 전체 사용자에게 열었다. ZCode, Trae, WorkBuddy, Qoder에 같이 올렸다. API는 안전 평가 뒤, 웨이트는 책임 있게 공개할 계획이다. Coding Plan V2·V3·팀 버전에서 GLM-5.4 한도는 1.5배다. 이 1.5배는 AutoClaw 안내와 숫자가 같고, 문장은 Coding Plan 쪽이다.
+- 실제 장면 200개의 프로그래밍 평가에서, 시각 코딩·시각 복각·장거리 작업의 체감이 가장 강한 국산 모델이라고 한다. 비교한 모델 이름은 없다.
+- 가장 큰 향상은 수학 추론, 긴 컨텍스트, 코드다. 영문은 수학, 과학 추론, 긴 컨텍스트다. 코드는 중국어에만 있다.
+- 2회차 루프가 거리를 나눈 KV 캐시 때문에 VRAM을 거의 더 쓰지 않는다고 한다. 영문은 “슬라이딩 윈도 하나”라고만 하고, “거의 증가하지 않는다”는 문장은 중국어에 있다.
+- 한계의 이름은 “雷霆大思考”다. 오래 생각할수록 효과가 오르고, 생각 중의 반성과 자기 수정이 장거리 작업에서 원하던 능력이라고 한다. 영문의 “파라미터 수를 넘는 정확도”와 같은 문장이 아니다.
+
+데모에도 이름이 더 있다. 뮤직비디오는 Mike Luan이 기획·편곡·모션·화면을 맡았고, 화면은 전부 프론트엔드 코드로 실시간으로 그리며 이미지 소재는 없다. 음악은 챕터와 샷마다 GLM-5.4가 계획을 세운 뒤 제3자 음악 모델을 부르고, 음악 프롬프트를 여러 번 스스로 고쳤다. 그 프롬프트 원문은 없다. 3D는 夜神不说话가 만들었고, 외부 3D 모델과 텍스처 파일은 없다. 북방긴꼬리박새의 깃, 숨을 쉬며 고개를 기울이는 동작, 순막 깜빡임을 수학 기하와 GLSL로 복원했다고 한다. 로봇 팔은 FreeCAD 다음에 Blender로 동작·시각화·오디오를 만들고, 로고를 집는 시뮬레이션까지 갔다고 한다. 추출문에 “设计动作、就可视化”가 있는데 “就”가 “及”의 오자인지는 원문이 말하지 않는다. 추출된 중국어 본문에는 영문의 게임 절이 없다.
+
+중국어가 적는 입구는 [ZCode 중문](https://zcode.z.ai/cn), [GLM Coding Plan](https://bigmodel.cn/glm-coding), z.ai, 智谱清言, AutoClaw다. 같이 연 제품으로 WorkBuddy, 豆包工作, Trae, 千问办公, Qoder, 妙手(CatPaw), 码道, 百度搭子企业版, AiWork, TJ Codely, OpenCode가 적혀 있다. 가격, 라이선스 이름, 750B 본체의 벤치마크 점수는 중국어에도 없다.
+
+## 9. 계보와 당일 반응
 
 날짜는 각 공식 글의 표기다. GLM-5 계열은 올해 들어 대략 두 달마다 한 번씩 나왔다.
 
@@ -253,7 +269,7 @@ Hugging Face `zai-org/GLM-5.4` 카드는 없다. [GLM-5 README](https://github.c
 
 [Hacker News](https://news.ycombinator.com/item?id=50609685)는 블로그가 올라온 뒤에 갈렸다. 오전 글([50608662](https://news.ycombinator.com/item?id=50608662))은 벤치마크와 모델 카드 없이 코딩 플랜만 열렸다는 반응이었다. 이후에는 루프를 2018년 Universal Transformer의 연장으로 읽는 쪽, 같은 파라미터에서 연산을 더 하는 구조라는 쪽, 회사가 인정한 marathon thinking 때문에 쉬운 일도 프론티어보다 오래 걸린다는 쪽이 나왔다. 오픈 웨이트가 API와 달라질 것이라는 읽기에는, 글이 말한 것은 안전 검토뿐이라는 반박이 붙었다. X에서는 장면 품질을 칭찬하는 글과, 1시간 30분이 지나도 교차 검증이 끝난다는 글, 제로샷이 깨졌다는 글이 같은 날 있었다. 이 데모들은 코딩 벤치마크가 아니다.
 
-## 9. 아직 문서에 없는 것
+## 10. 아직 문서에 없는 것
 
 블로그와 제품 문서를 대조한 뒤에도 비어 있는 항목이다.
 
@@ -266,7 +282,8 @@ Hugging Face `zai-org/GLM-5.4` 카드는 없다. [GLM-5 README](https://github.c
 
 ## 참고
 
-- Z.ai, [GLM-5.4: Toward Generalized Coding with Our First Loop Transformer](https://z.ai/blog/glm-5.4) (2026-11-23)
+- Z.ai, [GLM-5.4: Toward Generalized Coding with Our First Loop Transformer](https://z.ai/blog/glm-5.4) (2026-11-23). 연구 목록은 [2026-11-22](https://www.zhipuai.cn/en/research)
+- 중국어 공식글, [GLM-5.4：瞄向泛Coding](https://mp.weixin.qq.com/s/3mEIThoGiM6LhBAjUQAATw)
 - 구조 그림: [image.png](https://z-ai-bj.oss-cn-beijing.aliyuncs.com/prompts-rich-media-resources/5.4-blog/image.png)
 - 30B 비교 그림: [ablation](https://z-ai-bj.oss-cn-beijing.aliyuncs.com/prompts-rich-media-resources/5.4-blog/img_v3_0217n_2d1a655c-5bce-4b3f-9115-2ad7c397ce5g.png)
 - 페이지 이미지: [20261123-173242.jpeg](https://z-ai-bj.oss-cn-beijing.aliyuncs.com/prompts-rich-media-resources/5.4-blog/20261123-173242.jpeg?w=1280&h=720&fit=fill)
